@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Squares on Triangles — Mr. J's Math 8</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: #1F3864;
+    color: #f1f5f9;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 22px 16px 40px;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  h1 { font-size: 1.5rem; font-weight: 700; color: #F5A623; text-align: center; }
+  .subtitle { font-size: 0.88rem; color: #94a3b8; margin-top: 4px; text-align: center; margin-bottom: 16px; }
+
+  .card {
+    background: #142850; border-radius: 14px; padding: 16px 18px 18px;
+    width: 100%; max-width: 1080px;
+    border: 1px solid #2d4f8e;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  }
+
+  /* ── INSTRUCTION BAR ── */
+  .instruction {
+    background: #0f1a2e;
+    border: 1px solid #2d4f8e;
+    border-left: 5px solid #F5A623;
+    border-radius: 8px;
+    padding: 10px 16px;
+    font-size: 1.02rem;
+    line-height: 1.45;
+    min-height: 46px;
+    margin-bottom: 12px;
+  }
+  .instruction b { color: #F5A623; }
+
+  /* ── CANVAS ── */
+  .canvas-wrap {
+    background: #0f1a2e;
+    border: 1px solid #2d4f8e;
+    border-radius: 10px;
+    overflow: hidden;
+    line-height: 0;
+  }
+  canvas { width: 100%; height: auto; display: block; touch-action: none; cursor: default; }
+
+  /* ── TOOLBAR ── */
+  .toolbar {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    align-items: center; justify-content: center;
+    margin-top: 14px;
+  }
+  .sep { width: 1px; align-self: stretch; background: #2d4f8e; margin: 2px 6px; }
+
+  .btn {
+    padding: 10px 18px; border-radius: 8px; border: none;
+    font-size: 0.95rem; font-weight: 700; cursor: pointer;
+    font-family: inherit; transition: transform 0.1s, box-shadow 0.1s, background 0.15s;
+    white-space: nowrap;
+  }
+  .btn:active { transform: scale(0.96); }
+  .btn:disabled { opacity: 0.4; cursor: default; }
+  .btn-primary { background: #F5A623; color: #1F3864; box-shadow: 0 4px 14px rgba(245,166,35,0.3); }
+  .btn-primary:hover:not(:disabled) { box-shadow: 0 6px 20px rgba(245,166,35,0.5); }
+  .btn-secondary { background: #2d4f8e; color: #f1f5f9; }
+  .btn-secondary:hover:not(:disabled) { background: #3a63b0; }
+  .btn-ghost { background: transparent; color: #94a3b8; border: 1px solid #2d4f8e; }
+  .btn-ghost:hover:not(:disabled) { color: #f1f5f9; border-color: #3a63b0; }
+
+  .tool-toggle { display: flex; gap: 0; border: 1px solid #2d4f8e; border-radius: 9px; overflow: hidden; }
+  .tool-toggle button {
+    padding: 10px 18px; border: none; background: #1a2f55; color: #94a3b8;
+    font-family: inherit; font-size: 0.95rem; font-weight: 700; cursor: pointer;
+  }
+  .tool-toggle button + button { border-left: 1px solid #2d4f8e; }
+  .tool-toggle button.active { background: #F5A623; color: #1F3864; }
+
+  /* ── MESSAGE ── */
+  .message {
+    margin-top: 12px; min-height: 30px;
+    text-align: center; font-size: 1.02rem; font-weight: 600;
+    color: #94a3b8; line-height: 1.4;
+  }
+  .message.good { color: #4ade80; }
+  .message.bad  { color: #f87171; }
+  .message.hint { color: #a78bfa; }
+
+  .hidden { display: none !important; }
+
+  .foot { margin-top: 18px; font-size: 0.82rem; color: #94a3b8; text-align: center; }
+  .foot a { color: #F5A623; text-decoration: none; }
+  .foot a:hover { text-decoration: underline; }
+
+  @media (max-width: 620px) {
+    .btn, .tool-toggle button { padding: 9px 12px; font-size: 0.88rem; }
+    .instruction { font-size: 0.92rem; }
+    .sep { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<h1>Squares on Triangles</h1>
+<p class="subtitle">Cut and rearrange — what fits along the slanted side?</p>
+
+<div class="card">
+  <div class="instruction" id="instruction">Loading…</div>
+
+  <div class="canvas-wrap">
+    <canvas id="stage" width="1040" height="640"></canvas>
+  </div>
+
+  <div class="toolbar" id="toolbar">
+    <button class="btn btn-primary" id="btnNext">Put squares on the legs &rarr;</button>
+
+    <div class="tool-toggle hidden" id="toolToggle">
+      <button id="btnMove" class="active">&#9995; Move</button>
+      <button id="btnCut">&#9986; Cut</button>
+    </div>
+    <button class="btn btn-secondary hidden" id="btnRotate">&#8635; Turn</button>
+    <div class="sep hidden" id="sep1"></div>
+    <button class="btn btn-ghost hidden" id="btnUndo">&#8630; Undo</button>
+    <button class="btn btn-ghost hidden" id="btnReset">Start over</button>
+    <button class="btn btn-ghost hidden" id="btnHint">Hint</button>
+    <button class="btn btn-ghost hidden" id="btnNew">&#127922; New triangle</button>
+    <div class="sep hidden" id="sep2"></div>
+    <button class="btn btn-primary hidden" id="btnCheck">Check</button>
+
+    <button class="btn btn-secondary hidden" id="btnAreas">Compare the areas</button>
+  </div>
+
+  <div class="message" id="message"></div>
+</div>
+
+<p class="foot"><a href="../index.html">&larr; Back to Mr. J's Math 8</a></p>
+
+<script>
+'use strict';
+
+// ── Canvas ────────────────────────────────────────────────────────────────────
+const cv  = document.getElementById('stage');
+const ctx = cv.getContext('2d');
+const W = cv.width, H = cv.height;
+
+// ── Whole-number right triangles (Pythagorean triples) ────────────────────────
+const TRIPLES = [[3,4,5],[4,3,5],[6,8,10],[8,6,10],[5,12,13],[12,5,13]];
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let a = 3, b = 4, c = 5;      // legs a (vertical) and b (horizontal), hypotenuse c
+let lastIdx = -1;
+
+let step = 'intro';           // 'intro' | 'grow' | 'build' | 'win' | 'done'
+let mode = 'move';            // 'move' | 'cut'
+let pieces = [];
+let selected = null;
+let undoStack = [];
+let hintLevel = 0;
+let failCount = 0;
+let showAreas = false;
+
+let drag = null;              // { piece, offX, offY, startX, startY, bad }
+let hoverCut = null;          // { piece, axis:'v'|'h', at }
+let growT = 0;                // square growth animation 0→1
+let winT = 0;                 // move-to-hypotenuse animation 0→1
+let flash = 0;                // success flash timer
+
+let viewFigure, viewBuild, viewReveal, view;
+let viewFrom = null, viewTo = null, viewT = 1, viewDur = 0.6;
+
+// ── Views: world (y up, 1 unit = 1 square) → screen pixels ────────────────────
+function makeView(xMin, xMax, yMin, yMax) {
+  const pad = 14;
+  const s = Math.min((W - 2*pad) / (xMax - xMin), (H - 2*pad) / (yMax - yMin));
+  const cw = (xMax - xMin) * s, ch = (yMax - yMin) * s;
+  return { s, ox: (W - cw)/2 - xMin*s, oy: (H - ch)/2 + yMax*s };
+}
+function lerpView(v1, v2, t) {
+  return { s: v1.s + (v2.s - v1.s)*t, ox: v1.ox + (v2.ox - v1.ox)*t, oy: v1.oy + (v2.oy - v1.oy)*t };
+}
+const SX = wx => view.ox + wx * view.s;
+const SY = wy => view.oy - wy * view.s;
+const WX = px => (px - view.ox) / view.s;
+const WY = py => (view.oy - py) / view.s;
+
+// Working-area limits (world units) — pieces stay inside these
+let bounds = {};
+
+function layout() {
+  bounds = { xMin: -a - 1, xMax: b + 6 + c, yMin: -b - 1, yMax: a + 1 };
+  viewFigure = makeView(-a - 1, b + 1, -b - 1, a + 1);
+  viewBuild  = makeView(bounds.xMin, bounds.xMax, bounds.yMin, bounds.yMax);
+  viewReveal = makeView(-a - 1, a + b + 1, -b - 1, a + b + 1);
+  view = viewFigure; viewFrom = viewTo = viewFigure; viewT = 1;
+}
+
+// Glide the camera to a new framing
+function setView(v, dur) {
+  viewFrom = view; viewTo = v; viewT = 0; viewDur = dur || 0.6;
+}
+
+// ── Puzzle setup ──────────────────────────────────────────────────────────────
+function newPuzzle() {
+  let i;
+  do { i = Math.floor(Math.random() * TRIPLES.length); } while (i === lastIdx && TRIPLES.length > 1);
+  lastIdx = i;
+  [a, b, c] = TRIPLES[i];
+  step = 'intro'; mode = 'move'; growT = 0; winT = 0; flash = 0;
+  hintLevel = 0; failCount = 0; showAreas = false;
+  selected = null; drag = null; hoverCut = null; undoStack = [];
+  resetPieces();
+  layout();
+  setMsg('');
+  renderUI();
+}
+
+function resetPieces() {
+  // Square on the horizontal leg sits below it; square on the vertical leg sits left of it.
+  pieces = [
+    { x: 0,  y: -b, w: b, h: b, src: 'b', tone: 0.15 },
+    { x: -a, y: 0,  w: a, h: a, src: 'a', tone: 0.15 }
+  ];
+  selected = null; undoStack = [];
+}
+
+// ── Undo ──────────────────────────────────────────────────────────────────────
+function snapshot() {
+  undoStack.push(JSON.stringify(pieces));
+  if (undoStack.length > 80) undoStack.shift();
+  renderUI();
+}
+function undo() {
+  if (!undoStack.length) return;
+  pieces = JSON.parse(undoStack.pop());
+  selected = null; setMsg(''); renderUI();
+}
+
+// ── Geometry helpers ──────────────────────────────────────────────────────────
+function overlaps(p, q) {
+  return p.x < q.x + q.w && q.x < p.x + p.w && p.y < q.y + q.h && q.y < p.y + p.h;
+}
+function collides(p, ignore) {
+  for (const q of pieces) { if (q === ignore || q === p) continue; if (overlaps(p, q)) return true; }
+  return false;
+}
+function inBounds(p) {
+  return p.x >= bounds.xMin && p.x + p.w <= bounds.xMax && p.y >= bounds.yMin && p.y + p.h <= bounds.yMax;
+}
+function pieceAt(wx, wy) {
+  for (let i = pieces.length - 1; i >= 0; i--) {
+    const p = pieces[i];
+    if (wx >= p.x && wx <= p.x + p.w && wy >= p.y && wy <= p.y + p.h) return p;
+  }
+  return null;
+}
+
+// ── Colors ────────────────────────────────────────────────────────────────────
+function hueOf(p)  { return p.src === 'a' ? 212 : 266; }
+function fillOf(p) { return `hsl(${hueOf(p)}, 68%, ${Math.round(43 + p.tone * 27)}%)`; }
+function edgeOf(p) { return `hsl(${hueOf(p)}, 78%, ${Math.round(80 + p.tone * 8)}%)`; }
+
+// ── Cutting ───────────────────────────────────────────────────────────────────
+function nearestCut(wx, wy) {
+  const p = pieceAt(wx, wy);
+  if (!p) return null;
+  let best = null;
+  for (let i = 1; i < p.w; i++) {
+    const d = Math.abs(wx - (p.x + i));
+    if (!best || d < best.d) best = { piece: p, axis: 'v', at: p.x + i, d };
+  }
+  for (let j = 1; j < p.h; j++) {
+    const d = Math.abs(wy - (p.y + j));
+    if (!best || d < best.d) best = { piece: p, axis: 'h', at: p.y + j, d };
+  }
+  return best;
+}
+function applyCut(cut) {
+  if (!cut) return;
+  snapshot();
+  const p = cut.piece;
+  const tone2 = (p.tone + 0.41) % 1;
+  let q;
+  if (cut.axis === 'v') {
+    q = { x: cut.at, y: p.y, w: p.x + p.w - cut.at, h: p.h, src: p.src, tone: tone2 };
+    p.w = cut.at - p.x;
+  } else {
+    q = { x: p.x, y: cut.at, w: p.w, h: p.y + p.h - cut.at, src: p.src, tone: tone2 };
+    p.h = cut.at - p.y;
+  }
+  pieces.push(q);
+  selected = null;
+  setMsg('');
+  renderUI();
+}
+
+// ── Rotating ──────────────────────────────────────────────────────────────────
+function rotateSelected() {
+  const p = selected;
+  if (!p || p.w === p.h) return;
+  const cx = p.x + p.w / 2, cy = p.y + p.h / 2;
+  const nw = p.h, nh = p.w;
+  const tryPos = [[Math.round(cx - nw/2), Math.round(cy - nh/2)]];
+  for (let r = 1; r <= 3; r++)
+    for (let dx = -r; dx <= r; dx++)
+      for (let dy = -r; dy <= r; dy++)
+        if (Math.max(Math.abs(dx), Math.abs(dy)) === r)
+          tryPos.push([Math.round(cx - nw/2) + dx, Math.round(cy - nh/2) + dy]);
+
+  for (const [nx, ny] of tryPos) {
+    const test = { x: nx, y: ny, w: nw, h: nh };
+    if (inBounds(test) && !collides(test, p)) {
+      snapshot();
+      p.x = nx; p.y = ny; p.w = nw; p.h = nh;
+      setMsg(''); renderUI(); return;
+    }
+  }
+  setMsg('No room to turn that piece — move it somewhere clearer first.', 'bad');
+}
+
+// ── Checking ──────────────────────────────────────────────────────────────────
+function check() {
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity, area = 0;
+  for (const p of pieces) {
+    minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x + p.w);
+    minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y + p.h);
+    area += p.w * p.h;
+  }
+  const bw = maxX - minX, bh = maxY - minY;
+
+  if (area !== bw * bh) {
+    failCount++;
+    setMsg(bw * bh > area * 1.6
+      ? 'Your pieces are still spread out. Push them all together into one solid shape.'
+      : 'Almost — there are still gaps inside your shape. Every piece has to touch with no holes.', 'bad');
+    renderUI(); return;
+  }
+  if (bw !== bh) {
+    failCount++;
+    setMsg(`That is a solid rectangle (${bw} by ${bh}), but not a square yet. Keep rearranging.`, 'bad');
+    renderUI(); return;
+  }
+  if (pieces.length === 1) { // shouldn't happen, but be safe
+    failCount++; setMsg('Keep going.', 'bad'); renderUI(); return;
+  }
+
+  // Success — remember where the finished square sits, then fly it onto the slanted side.
+  winSquare = { x: minX, y: minY, n: bw };
+  step = 'win'; winT = 0; flash = 1;
+  selected = null; drag = null; hoverCut = null;
+  setMsg('Yes! One big square.', 'good');
+  renderUI();
+}
+let winSquare = { x: 0, y: 0, n: 0 };
+
+// ── Hints ─────────────────────────────────────────────────────────────────────
+const HINTS = [
+  'Start with the bigger square. Leave it whole and slide it out into the open space.',
+  'Now look at the empty space around the big square. Could long thin strips from the smaller square fill it in?',
+  'Cut the smaller square into strips, then cut a strip shorter if it hangs over. Use "Turn" to stand a strip on its end.'
+];
+function hint() {
+  setMsg(HINTS[Math.min(hintLevel, HINTS.length - 1)], 'hint');
+  hintLevel++;
+}
+
+// ── Drawing ───────────────────────────────────────────────────────────────────
+function fontPx() { return Math.max(19, Math.min(34, view.s * 0.62)); }
+
+function drawTriangle() {
+  const O = [SX(0), SY(0)], B = [SX(b), SY(0)], A = [SX(0), SY(a)];
+  ctx.beginPath();
+  ctx.moveTo(O[0], O[1]); ctx.lineTo(B[0], B[1]); ctx.lineTo(A[0], A[1]); ctx.closePath();
+  ctx.fillStyle = 'rgba(245,166,35,0.14)';
+  ctx.fill();
+  ctx.lineWidth = 5; ctx.lineJoin = 'round';
+  ctx.strokeStyle = '#F5A623';
+  ctx.stroke();
+
+  // right-angle marker
+  const m = Math.min(0.42, Math.min(a, b) * 0.2);
+  ctx.beginPath();
+  ctx.moveTo(SX(m), SY(0)); ctx.lineTo(SX(m), SY(m)); ctx.lineTo(SX(0), SY(m));
+  ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(245,166,35,0.8)';
+  ctx.stroke();
+
+  // leg + hypotenuse labels
+  const fs = fontPx();
+  ctx.font = `700 ${fs}px 'Segoe UI', system-ui, sans-serif`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#F5A623';
+  label(String(b), SX(b/2) + fs*0.2, SY(0) - fs*0.85);
+  label(String(a), SX(0) + fs*0.85, SY(a/2));
+  if (step !== 'win' && step !== 'done')
+    label('?', SX(b/2 + (a/c)*0.62), SY(a/2 + (b/c)*0.62));
+}
+
+// Drawn after the pieces so the finished square never hides them
+function drawHypLabels() {
+  const fs = fontPx();
+  ctx.font = `700 ${fs}px 'Segoe UI', system-ui, sans-serif`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = (step === 'done') ? '#4ade80' : '#F5A623';
+  label(step === 'done' ? String(c) : '?', SX(b/2 + (a/c)*0.5), SY(a/2 + (b/c)*0.5));
+  if (step === 'done' && showAreas) {
+    ctx.font = `700 ${fs*0.82}px 'Segoe UI', system-ui, sans-serif`;
+    ctx.fillStyle = '#eafff1';
+    label(`${c} × ${c} = ${c*c}`, SX((a+b)/2), SY((a+b)/2));
+  }
+}
+function label(txt, x, y) {
+  ctx.save();
+  ctx.lineWidth = 5; ctx.strokeStyle = '#0f1a2e'; ctx.lineJoin = 'round';
+  ctx.strokeText(txt, x, y);
+  ctx.fillText(txt, x, y);
+  ctx.restore();
+}
+
+// Faint dashed reminder of where each square started
+function drawGhosts() {
+  const g = growT;
+  ctx.save();
+  ctx.setLineDash([7, 6]);
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = 'rgba(148,163,184,0.45)';
+  const r1 = [SX(0), SY(0), b*view.s*g, b*view.s*g];
+  const r2 = [SX(-a*g), SY(a*g), a*view.s*g, a*view.s*g];
+  if (showAreas) {
+    ctx.fillStyle = 'hsla(266,68%,55%,0.55)'; ctx.fillRect(...r1);
+    ctx.fillStyle = 'hsla(212,68%,55%,0.55)'; ctx.fillRect(...r2);
+  }
+  ctx.strokeRect(...r1);
+  ctx.strokeRect(...r2);
+  ctx.restore();
+
+  if (showAreas) {
+    const fs = fontPx() * 0.82;
+    ctx.font = `700 ${fs}px 'Segoe UI', system-ui, sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#f1f5f9';
+    label(`${b} × ${b} = ${b*b}`, SX(b/2), SY(-b/2));
+    label(`${a} × ${a} = ${a*a}`, SX(-a/2), SY(a/2));
+  }
+}
+
+// Draw one piece in a local frame: origin at world point `org`, rotated by `theta`
+// (world radians, counter-clockwise), piece drawn at local (u,v) with size w×h.
+function drawPiece(p, org, theta, u, v, opts) {
+  opts = opts || {};
+  const s = view.s;
+  ctx.save();
+  ctx.translate(SX(org[0]), SY(org[1]));
+  ctx.rotate(-theta);
+  ctx.scale(s, -s);            // local world units, y up
+
+  ctx.beginPath();
+  ctx.rect(u, v, p.w, p.h);
+  ctx.fillStyle = opts.bad ? '#7f1d1d' : fillOf(p);
+  ctx.fill();
+
+  // unit grid inside the piece
+  ctx.lineWidth = 1.2 / s;
+  ctx.strokeStyle = 'rgba(15,26,46,0.45)';
+  ctx.beginPath();
+  for (let i = 1; i < p.w; i++) { ctx.moveTo(u + i, v); ctx.lineTo(u + i, v + p.h); }
+  for (let j = 1; j < p.h; j++) { ctx.moveTo(u, v + j); ctx.lineTo(u + p.w, v + j); }
+  ctx.stroke();
+
+  // outline
+  ctx.lineWidth = (opts.selected ? 4 : 2.6) / s;
+  ctx.strokeStyle = opts.bad ? '#f87171' : (opts.selected ? '#F5A623' : edgeOf(p));
+  ctx.lineJoin = 'round';
+  ctx.strokeRect(u, v, p.w, p.h);
+  ctx.restore();
+}
+
+function drawCutPreview() {
+  if (!hoverCut || mode !== 'cut' || step !== 'build') return;
+  const p = hoverCut.piece;
+  ctx.save();
+  ctx.lineWidth = 4; ctx.setLineDash([10, 7]);
+  ctx.strokeStyle = '#F5A623';
+  ctx.beginPath();
+  if (hoverCut.axis === 'v') { ctx.moveTo(SX(hoverCut.at), SY(p.y)); ctx.lineTo(SX(hoverCut.at), SY(p.y + p.h)); }
+  else { ctx.moveTo(SX(p.x), SY(hoverCut.at)); ctx.lineTo(SX(p.x + p.w), SY(hoverCut.at)); }
+  ctx.stroke();
+  ctx.restore();
+}
+
+const easeInOut = t => t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t + 2, 3) / 2;
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+  view = (viewT >= 1) ? viewTo : lerpView(viewFrom, viewTo, easeInOut(viewT));
+
+  if (step !== 'intro') drawGhosts();
+  drawTriangle();
+
+  if (step === 'grow') {
+    // squares growing out from each leg
+    const pb = { x: 0,  y: -b*growT, w: b, h: b*growT, src: 'b', tone: 0.15 };
+    const pa = { x: -a*growT, y: 0,  w: a*growT, h: a, src: 'a', tone: 0.15 };
+    if (growT > 0.02) { drawPiece(pb, [pb.x, pb.y], 0, 0, 0, {}); drawPiece(pa, [pa.x, pa.y], 0, 0, 0, {}); }
+  } else if (step === 'build') {
+    for (const p of pieces) {
+      const bad = drag && drag.piece === p && drag.bad;
+      drawPiece(p, [p.x, p.y], 0, 0, 0, { selected: p === selected, bad });
+    }
+    drawCutPreview();
+  } else if (step === 'win' || step === 'done') {
+    // rigid motion: assembled square rotates onto the hypotenuse
+    const t = easeInOut(Math.min(1, winT));
+    const theta = Math.atan2(-a, b) * t;
+    const org = [ winSquare.x + (0 - winSquare.x) * t, winSquare.y + (a - winSquare.y) * t ];
+    for (const p of pieces)
+      drawPiece(p, org, theta, p.x - winSquare.x, p.y - winSquare.y, {});
+
+    // outline of the whole square
+    ctx.save();
+    ctx.translate(SX(org[0]), SY(org[1]));
+    ctx.rotate(-theta);
+    ctx.scale(view.s, -view.s);
+    ctx.lineWidth = 5 / view.s; ctx.lineJoin = 'round';
+    ctx.strokeStyle = flash > 0 ? '#4ade80' : 'rgba(74,222,128,0.85)';
+    ctx.strokeRect(0, 0, winSquare.n, winSquare.n);
+    ctx.restore();
+    drawHypLabels();
+  }
+
+  if (flash > 0) {
+    ctx.fillStyle = `rgba(74,222,128,${0.18 * flash})`;
+    ctx.fillRect(0, 0, W, H);
+  }
+}
+
+// ── Animation loop ────────────────────────────────────────────────────────────
+let last = performance.now();
+function loop(now) {
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now;
+
+  if (viewT < 1) viewT = Math.min(1, viewT + dt / viewDur);
+
+  if (step === 'grow') {
+    growT = Math.min(1, growT + dt / 0.75);
+    if (growT >= 1) { step = 'build'; setView(viewBuild, 0.8); renderUI(); }
+  }
+  if (step === 'win') {
+    if (flash > 0) {
+      flash = Math.max(0, flash - dt / 0.5);
+      if (flash === 0) setView(viewReveal, 1.9);
+    }
+    if (flash === 0) {
+      winT = Math.min(1, winT + dt / 1.9);
+      if (winT >= 1) {
+        step = 'done';
+        setMsg('The square you built lands exactly on the slanted side — its side is the same length!', 'good');
+        renderUI();
+      }
+    }
+  }
+  if (step === 'done' && flash > 0) flash = Math.max(0, flash - dt / 0.5);
+
+  draw();
+  requestAnimationFrame(loop);
+}
+
+// ── Pointer input ─────────────────────────────────────────────────────────────
+function pointer(e) {
+  const r = cv.getBoundingClientRect();
+  return [ WX((e.clientX - r.left) * (W / r.width)), WY((e.clientY - r.top) * (H / r.height)) ];
+}
+
+cv.addEventListener('pointerdown', e => {
+  if (step !== 'build') return;
+  const [wx, wy] = pointer(e);
+  try { cv.setPointerCapture(e.pointerId); } catch (_) {}
+
+  if (mode === 'cut') {
+    const cut = nearestCut(wx, wy);
+    hoverCut = cut;
+    applyCut(cut);
+    return;
+  }
+  const p = pieceAt(wx, wy);
+  selected = p;
+  if (p) {
+    // draw on top
+    pieces.splice(pieces.indexOf(p), 1); pieces.push(p);
+    drag = { piece: p, offX: wx - p.x, offY: wy - p.y, startX: p.x, startY: p.y, moved: false, bad: false };
+  }
+  renderUI();
+});
+
+cv.addEventListener('pointermove', e => {
+  if (step !== 'build') return;
+  const [wx, wy] = pointer(e);
+
+  if (drag) {
+    const p = drag.piece;
+    let nx = Math.round(wx - drag.offX), ny = Math.round(wy - drag.offY);
+    nx = Math.max(bounds.xMin, Math.min(bounds.xMax - p.w, nx));
+    ny = Math.max(bounds.yMin, Math.min(bounds.yMax - p.h, ny));
+    if (nx !== p.x || ny !== p.y) drag.moved = true;
+    p.x = nx; p.y = ny;
+    drag.bad = collides(p, p);
+    return;
+  }
+  hoverCut = (mode === 'cut') ? nearestCut(wx, wy) : null;
+  cv.style.cursor = mode === 'cut'
+    ? (hoverCut ? 'crosshair' : 'default')
+    : (pieceAt(wx, wy) ? 'grab' : 'default');
+});
+
+function endDrag() {
+  if (!drag) return;
+  const p = drag.piece;
+  if (collides(p, p)) {
+    // slide to the closest free spot; otherwise put it back
+    let placed = false;
+    outer:
+    for (let r = 1; r <= 3 && !placed; r++)
+      for (let dx = -r; dx <= r; dx++)
+        for (let dy = -r; dy <= r; dy++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+          const test = { x: p.x + dx, y: p.y + dy, w: p.w, h: p.h };
+          if (inBounds(test) && !collides(test, p)) { p.x = test.x; p.y = test.y; placed = true; break outer; }
+        }
+    if (!placed) { p.x = drag.startX; p.y = drag.startY; }
+  }
+  if (drag.moved && (p.x !== drag.startX || p.y !== drag.startY)) {
+    const before = pieces.map(q => q === p ? { ...q, x: drag.startX, y: drag.startY } : q);
+    undoStack.push(JSON.stringify(before));
+    if (undoStack.length > 80) undoStack.shift();
+    setMsg('');
+  }
+  drag = null;
+  renderUI();
+}
+cv.addEventListener('pointerup', endDrag);
+cv.addEventListener('pointercancel', endDrag);
+cv.addEventListener('pointerleave', () => { hoverCut = null; });
+
+cv.addEventListener('dblclick', e => {
+  if (step !== 'build' || mode !== 'move') return;
+  const [wx, wy] = pointer(e);
+  const p = pieceAt(wx, wy);
+  if (p) { selected = p; rotateSelected(); }
+});
+
+window.addEventListener('keydown', e => {
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  const k = e.key.toLowerCase();
+  if (step === 'build' && (k === 'r')) { rotateSelected(); e.preventDefault(); }
+  else if (step === 'build' && k === 'c') { setMode(mode === 'cut' ? 'move' : 'cut'); e.preventDefault(); }
+  else if (step === 'build' && k === 'u') { undo(); e.preventDefault(); }
+  else if (step === 'build' && k === 'enter') { check(); e.preventDefault(); }
+});
+
+// ── UI ────────────────────────────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+const msgEl = $('message'), instrEl = $('instruction');
+
+function setMsg(txt, kind) {
+  msgEl.textContent = txt || '';
+  msgEl.className = 'message' + (kind ? ' ' + kind : '');
+}
+function setMode(m) {
+  mode = m; hoverCut = null; selected = null;
+  $('btnMove').classList.toggle('active', m === 'move');
+  $('btnCut').classList.toggle('active', m === 'cut');
+  if (m === 'cut') setMsg('Click inside a piece where you want to cut it. The dotted line shows the cut.', 'hint');
+  else setMsg('');
+  renderUI();
+}
+
+function show(id, on) { $(id).classList.toggle('hidden', !on); }
+
+function renderUI() {
+  const building = (step === 'build');
+  show('btnNext', step === 'intro');
+  show('toolToggle', building);
+  show('btnRotate', building);
+  show('sep1', building); show('sep2', building);
+  show('btnUndo', building);
+  show('btnReset', building);
+  show('btnHint', building);
+  show('btnCheck', building);
+  // quiet helper while working; the obvious next move once they've finished
+  const done = (step === 'done');
+  $('btnNew').className = 'btn ' + (done ? 'btn-primary' : 'btn-ghost');
+  $('btnNew').style.order = done ? '20' : '0';   // sits after "Compare the areas" at the end
+  $('btnAreas').style.order = '10';
+
+  show('btnAreas', done);
+  show('btnNew', step === 'intro' || building || done);
+
+  $('btnUndo').disabled = undoStack.length === 0;
+  $('btnRotate').disabled = !selected || selected.w === selected.h;
+  $('btnAreas').textContent = showAreas ? 'Hide the areas' : 'Compare the areas';
+
+  if (step === 'intro')
+    instrEl.innerHTML = `Here is a <b>right triangle</b>. Its two short sides — the <b>legs</b> — are <b>${a}</b> and <b>${b}</b> units long. How long is the slanted side?`;
+  else if (step === 'grow')
+    instrEl.innerHTML = `A square is built on each leg — one is <b>${a}</b> by <b>${a}</b>, the other is <b>${b}</b> by <b>${b}</b>.`;
+  else if (step === 'build')
+    instrEl.innerHTML = `<b>Cut</b> these two squares into pieces and <b>move</b> the pieces together to build <b>one bigger square</b>. Use every piece, with no gaps or overlaps. Then press <b>Check</b>.`;
+  else if (step === 'win')
+    instrEl.innerHTML = `Watch where your square goes…`;
+  else
+    instrEl.innerHTML = `Your square fits <b>exactly</b> along the slanted side, so the slanted side is <b>${c}</b> units. Try another triangle — does it always work?`;
+}
+
+// ── Buttons ───────────────────────────────────────────────────────────────────
+$('btnNext').onclick   = () => { step = 'grow'; growT = 0; setMsg(''); renderUI(); };
+$('btnMove').onclick   = () => setMode('move');
+$('btnCut').onclick    = () => setMode('cut');
+$('btnRotate').onclick = () => rotateSelected();
+$('btnUndo').onclick   = () => undo();
+$('btnReset').onclick  = () => { resetPieces(); setMsg('Back to two whole squares.'); renderUI(); };
+$('btnHint').onclick   = () => hint();
+$('btnCheck').onclick  = () => check();
+$('btnNew').onclick    = () => { const wasWorking = (step === 'build'); newPuzzle(); if (wasWorking) setMsg('No problem — here is a different triangle to try.'); };
+$('btnAreas').onclick  = () => { showAreas = !showAreas; renderUI(); };
+
+// ── Go ────────────────────────────────────────────────────────────────────────
+newPuzzle();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
