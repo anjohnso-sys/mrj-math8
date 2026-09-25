@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Integer Chips — Mr. J's Math 8</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: #1F3864;
+    color: #f1f5f9;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 28px 20px 48px;
+    user-select: none;
+  }
+
+  h1 { font-size: 1.5rem; font-weight: 700; color: #F5A623; text-align: center; }
+  .subtitle { font-size: 0.88rem; color: #94a3b8; margin-top: 4px; text-align: center; margin-bottom: 20px; }
+
+  .card {
+    background: #142850; border-radius: 14px; padding: 20px 24px;
+    width: 100%; max-width: 720px;
+    border: 1px solid #2d4f8e;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  }
+
+  /* ── CHIP BANK ── */
+  .chip-bank {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 40px;
+    padding: 8px 0 18px;
+  }
+
+  .bank-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    touch-action: none;
+  }
+  .bank-btn:active { opacity: 0.8; }
+
+  .bank-circle {
+    width: 64px; height: 64px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 2rem; font-weight: 900;
+    color: white;
+    border: 3px solid rgba(255,255,255,0.25);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.35);
+    pointer-events: none;
+    transition: transform 0.1s;
+  }
+  .bank-btn:active .bank-circle { transform: scale(0.9); }
+  .bank-btn.pos .bank-circle { background: radial-gradient(circle at 35% 35%, #60a5fa 0%, #3b82f6 100%); }
+  .bank-btn.neg .bank-circle { background: radial-gradient(circle at 35% 35%, #fca5a5 0%, #f87171 100%); }
+
+  .bank-label {
+    font-size: 0.75rem; font-weight: 700; color: #94a3b8;
+    text-transform: uppercase; letter-spacing: 0.04em;
+    pointer-events: none;
+  }
+
+  .bank-hint {
+    font-size: 0.78rem; color: #64748b;
+    text-align: center; max-width: 190px; line-height: 1.6;
+    pointer-events: none;
+  }
+
+  .bank-col, .bank-center {
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+  }
+
+  .take-btn {
+    padding: 7px 14px; border-radius: 8px;
+    background: transparent; font-family: inherit;
+    font-size: 0.85rem; font-weight: 700; cursor: pointer;
+    transition: transform 0.1s, background 0.1s;
+  }
+  .take-btn:active { transform: scale(0.95); }
+  .take-btn:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
+  .take-btn.pos { color: #60a5fa; border: 2px solid #60a5fa; }
+  .take-btn.neg { color: #f87171; border: 2px solid #f87171; }
+  .take-btn.pos:hover:not(:disabled) { background: rgba(96,165,250,0.15); }
+  .take-btn.neg:hover:not(:disabled) { background: rgba(248,113,113,0.15); }
+
+  .btn.btn-zero {
+    padding: 9px 18px;
+    background: #142850; color: #F5A623;
+    border: 2px solid #F5A623;
+  }
+  .btn.btn-zero:hover:not(:disabled) { background: rgba(245,166,35,0.15); }
+  .btn-zero .mini { display: inline-block; width: 1.25em; height: 1.25em; line-height: 1.2em;
+    border-radius: 50%; color: white; font-weight: 900; text-align: center; font-size: 0.9em; }
+  .btn-zero .mini.pos { background: #3b82f6; }
+  .btn-zero .mini.neg { background: #f87171; }
+
+  /* ── CANVAS ── */
+  .canvas-wrap { width: 100%; display: flex; justify-content: center; }
+  canvas {
+    border-radius: 10px; max-width: 100%;
+    border: 1px solid #2d4f8e;
+    cursor: pointer;
+    touch-action: none;
+  }
+
+
+  /* ── MESSAGES ── */
+  .pairs-msg {
+    text-align: center; font-size: 0.82rem; font-weight: 700;
+    color: #F5A623; min-height: 1.3em; margin-top: 10px;
+  }
+  .step-label {
+    text-align: center; font-size: 0.85rem; font-weight: 600;
+    color: #94a3b8; min-height: 1.4em; margin-top: 4px;
+  }
+
+  /* ── CONTROLS ── */
+  .controls {
+    display: flex; align-items: center; gap: 10px;
+    flex-wrap: wrap; justify-content: center; margin: 14px 0 0;
+  }
+  .btn {
+    padding: 11px 28px; border-radius: 9px; border: none;
+    font-size: 0.95rem; font-weight: 700; cursor: pointer;
+    font-family: inherit; transition: transform 0.1s, box-shadow 0.1s;
+  }
+  .btn:active { transform: scale(0.96); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+  .btn-primary { background: #F5A623; color: #1F3864; box-shadow: 0 4px 14px rgba(245,166,35,0.3); }
+  .btn-primary:hover:not(:disabled) { box-shadow: 0 6px 20px rgba(245,166,35,0.5); }
+  .btn-secondary { background: #2d4f8e; color: #f1f5f9; }
+  .btn-secondary:hover:not(:disabled) { background: #3a63b0; }
+</style>
+</head>
+<body>
+
+<h1>Integer Chips</h1>
+<p class="subtitle">Zero Pairs — Unit 1 · Grade 7 Math</p>
+
+<div class="card">
+
+  <div class="chip-bank">
+    <div class="bank-col">
+      <div class="bank-btn pos" onclick="addChip('+')">
+        <div class="bank-circle">+</div>
+        <span class="bank-label">Positive</span>
+      </div>
+      <button class="take-btn pos" id="btnTakePos" onclick="takeAway('+')" disabled>Take Away +</button>
+    </div>
+    <div class="bank-center">
+      <div class="bank-hint">
+        Click to add chips to the mat.<br>
+        Click a chip to select it,<br>then click the opposite type<br>to form a zero pair.
+      </div>
+      <button class="btn btn-zero" id="btnZeroPair" onclick="addZeroPair()">
+        Add Zero Pair <span class="mini pos">+</span> <span class="mini neg">−</span>
+      </button>
+    </div>
+    <div class="bank-col">
+      <div class="bank-btn neg" onclick="addChip('-')">
+        <div class="bank-circle">−</div>
+        <span class="bank-label">Negative</span>
+      </div>
+      <button class="take-btn neg" id="btnTakeNeg" onclick="takeAway('-')" disabled>Take Away −</button>
+    </div>
+  </div>
+
+  <div class="canvas-wrap">
+    <canvas id="matCanvas" width="640" height="360"></canvas>
+  </div>
+
+  <div class="pairs-msg"  id="pairsMsg"></div>
+  <div class="step-label" id="stepLabel">Add chips to the mat to begin</div>
+
+  <div class="controls">
+    <button class="btn btn-primary"   id="btnRemove" onclick="removeZeroPairs()" disabled>Remove Zero Pairs</button>
+    <button class="btn btn-secondary"               onclick="clearMat()">Clear</button>
+  </div>
+
+</div>
+
+<script>
+'use strict';
+
+const canvas = document.getElementById('matCanvas');
+const ctx    = canvas.getContext('2d');
+const W      = canvas.width;   // 640
+const H      = canvas.height;  // 360
+
+// ── Grid constants ────────────────────────────────────────────────────────────
+// 9 cols × 4 rows, centered in the 640×360 canvas
+const CHIP_R  = 26;
+const STEP    = 66;   // chip diameter (52) + 14px gap
+const COLS    = 9;
+const MAX_CHIPS = COLS * 4; // 36
+const START_X = Math.round((W - (COLS - 1) * STEP) / 2); // 56
+const START_Y = Math.round((H - 3 * STEP) / 2);           // 81
+
+function slotPos(idx) {
+  return {
+    x: START_X + (idx % COLS) * STEP,
+    y: START_Y + Math.floor(idx / COLS) * STEP,
+  };
+}
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let chips     = [];
+let bursts    = [];
+let rafId     = null;
+let lastTs    = null;
+let idCtr     = 0;
+let pendingId = null; // id of the chip currently selected, awaiting a partner
+
+const POS_BASE  = '#3b82f6';
+const POS_LIGHT = '#60a5fa';
+const NEG_BASE  = '#f87171';
+const NEG_LIGHT = '#fca5a5';
+const GOLD      = '#F5A623';
+const FLASH_MS  = 900;
+
+// ── Layout engine ─────────────────────────────────────────────────────────────
+// Assigns targetX/Y to every chip based on current pairing state.
+// Paired chips (as + / − pairs) come first, unpaired chips fill after.
+function reLayout() {
+  const active  = chips.filter(c => c.state !== 'removing').sort((a, b) => a.id - b.id);
+  const ordered = [];
+  const seen    = new Set();
+
+  // Pairs first — when we encounter either chip of a pair, place + then −
+  for (const c of active) {
+    if (!c.paired || seen.has(c.id)) continue;
+    const partner = chips.find(x => x.id === c.pairedWithId);
+    if (!partner || seen.has(partner.id)) continue;
+    const pos = c.type === '+' ? c : partner;
+    const neg = c.type === '-' ? c : partner;
+    ordered.push(pos, neg);
+    seen.add(pos.id); seen.add(neg.id);
+  }
+
+  // Unpaired chips in add-order
+  for (const c of active) {
+    if (!seen.has(c.id)) { ordered.push(c); seen.add(c.id); }
+  }
+
+  // Assign grid target positions
+  for (let i = 0; i < ordered.length; i++) {
+    const { x, y } = slotPos(i);
+    ordered[i].targetX = x;
+    ordered[i].targetY = y;
+  }
+}
+
+// ── Add chip ──────────────────────────────────────────────────────────────────
+function addChip(type) {
+  const activeCount = chips.filter(c => c.state !== 'removing').length;
+  if (activeCount >= MAX_CHIPS) return;
+  // Spawn at the slot it will occupy (reLayout will confirm the same position)
+  const { x, y } = slotPos(activeCount);
+  chips.push({
+    id: idCtr++, x, y, type,
+    scale: 0, state: 'spawning',
+    selected: false, paired: false, pairedWithId: null,
+    removeScale: 1, tx: x, ty: y,
+    targetX: x, targetY: y,
+  });
+  reLayout();
+  renderUI();
+  scheduleRaf();
+  return chips[chips.length - 1];
+}
+
+// ── Add zero pair (one + and one −, side by side) ─────────────────────────────
+function addZeroPair() {
+  const activeCount = chips.filter(c => c.state !== 'removing').length;
+  if (activeCount + 2 > MAX_CHIPS) return;
+  const p = addChip('+');
+  const n = addChip('-');
+  p.flash = n.flash = FLASH_MS; // brief gold ring so the pair's arrival is visible
+}
+
+// ── Take away a single chip ───────────────────────────────────────────────────
+// Prefers the most recent unpaired chip; if only paired ones remain, unlinks the partner.
+function takeAway(type) {
+  const candidates = chips.filter(c => c.type === type && c.state !== 'removing');
+  const chip = [...candidates].reverse().find(c => !c.paired) || candidates[candidates.length - 1];
+  if (!chip) return;
+
+  if (chip.paired) {
+    const partner = chips.find(c => c.id === chip.pairedWithId);
+    if (partner) { partner.paired = false; partner.pairedWithId = null; }
+  }
+  if (chip.id === pendingId) pendingId = null;
+
+  chip.state = 'removing';
+  chip.paired = false; chip.pairedWithId = null; chip.selected = false;
+  chip.removeScale = chip.scale || 1;
+  chip.tx = chip.x; chip.ty = chip.y - 40; // lift up and off the mat
+  reLayout();
+  renderUI(); scheduleRaf();
+}
+
+// ── Selection / pairing ───────────────────────────────────────────────────────
+function handleChipClick(chip) {
+  if (chip.state !== 'normal') return;
+
+  // Clicking a paired chip unlinks both and reshuffles
+  if (chip.paired) {
+    const partner = chips.find(c => c.id === chip.pairedWithId);
+    chip.paired = false; chip.pairedWithId = null;
+    if (partner) { partner.paired = false; partner.pairedWithId = null; }
+    reLayout();
+    renderUI(); scheduleRaf();
+    return;
+  }
+
+  // Clicking the already-selected chip deselects it
+  if (chip.id === pendingId) {
+    chip.selected = false;
+    pendingId = null;
+    renderUI(); drawMat();
+    return;
+  }
+
+  const pending = pendingId !== null ? chips.find(c => c.id === pendingId) : null;
+
+  if (pending && pending.type !== chip.type) {
+    // Opposite types → link as zero pair, then reshuffle all chips
+    pending.selected = false;
+    pending.paired   = true; pending.pairedWithId = chip.id;
+    chip.paired      = true; chip.pairedWithId    = pending.id;
+    pendingId = null;
+    reLayout();
+    renderUI(); scheduleRaf();
+    return;
+  }
+
+  // Same type (or nothing pending) → select this chip, replace existing selection
+  if (pending) pending.selected = false;
+  chip.selected = true;
+  pendingId     = chip.id;
+  renderUI();
+  scheduleRaf(); // keep rAF for pulse animation
+}
+
+// ── Canvas click ──────────────────────────────────────────────────────────────
+canvas.addEventListener('click', e => {
+  const r  = canvas.getBoundingClientRect();
+  const mx = (e.clientX - r.left) * (W / r.width);
+  const my = (e.clientY - r.top)  * (H / r.height);
+
+  for (let i = chips.length - 1; i >= 0; i--) {
+    const c = chips[i];
+    if (c.state !== 'normal') continue;
+    if ((c.x - mx) ** 2 + (c.y - my) ** 2 <= CHIP_R ** 2) {
+      handleChipClick(c);
+      return;
+    }
+  }
+
+  // Click on empty mat → deselect pending chip
+  if (pendingId !== null) {
+    const sel = chips.find(c => c.id === pendingId);
+    if (sel) sel.selected = false;
+    pendingId = null;
+    renderUI(); drawMat();
+  }
+});
+
+// ── Remove zero pairs ─────────────────────────────────────────────────────────
+function removeZeroPairs() {
+  const paired = chips.filter(c => c.paired && c.state !== 'removing');
+  if (!paired.length) return;
+
+  const processed = new Set();
+  for (const c of paired) {
+    if (processed.has(c.id)) continue;
+    const partner = chips.find(p => p.id === c.pairedWithId);
+    if (!partner) continue;
+    const mx = (c.x + partner.x) / 2;
+    const my = (c.y + partner.y) / 2;
+    [c, partner].forEach(ch => {
+      ch.state = 'removing';
+      ch.paired = false; ch.selected = false;
+      ch.tx = mx; ch.ty = my;
+    });
+    processed.add(c.id); processed.add(partner.id);
+    setTimeout(() => {
+      bursts.push({ x: mx, y: my, t: 0, dur: 500 });
+      scheduleRaf();
+    }, 200);
+  }
+  pendingId = null;
+  renderUI(); scheduleRaf();
+}
+
+// ── UI update ─────────────────────────────────────────────────────────────────
+function renderUI() {
+  const active  = chips.filter(c => c.state !== 'removing');
+  const pairsN  = active.filter(c => c.paired && c.type === '+').length;
+  const pending = pendingId !== null ? chips.find(c => c.id === pendingId) : null;
+
+  document.getElementById('btnRemove').disabled = pairsN === 0;
+  document.getElementById('btnTakePos').disabled  = !active.some(c => c.type === '+');
+  document.getElementById('btnTakeNeg').disabled  = !active.some(c => c.type === '-');
+  document.getElementById('btnZeroPair').disabled = active.length + 2 > MAX_CHIPS;
+  document.getElementById('pairsMsg').textContent = pairsN > 0
+    ? `${pairsN} zero pair${pairsN !== 1 ? 's' : ''} linked — press Remove to cancel them out`
+    : '';
+
+  const stepEl = document.getElementById('stepLabel');
+  if (active.length === 0) {
+    stepEl.textContent = 'Add chips to the mat to begin';
+  } else if (pending) {
+    const oppLabel = pending.type === '+' ? 'negative (−)' : 'positive (+)';
+    stepEl.textContent = `${pending.type} selected — now click a ${oppLabel} chip to form a zero pair`;
+  } else if (pairsN > 0) {
+    stepEl.textContent = 'Press Remove Zero Pairs, or link more pairs first';
+  } else {
+    stepEl.textContent = 'Click a chip to select it, then click the opposite type to form a zero pair';
+  }
+}
+
+// ── RAF loop ──────────────────────────────────────────────────────────────────
+function rafLoop(ts) {
+  if (!lastTs) lastTs = ts;
+  const dt = Math.min(ts - lastTs, 50);
+  lastTs   = ts;
+
+  let more = false;
+
+  for (const c of chips) {
+    if (c.flash > 0) { c.flash = Math.max(0, c.flash - dt); more = true; }
+    if (c.state === 'spawning') {
+      c.scale = Math.min(1, c.scale + dt / 130);
+      if (c.scale < 1) more = true;
+      else { c.state = 'normal'; c.scale = 1; }
+    }
+    // Slide chip toward its target layout position
+    if (c.state === 'normal') {
+      const dx = c.targetX - c.x, dy = c.targetY - c.y;
+      const d  = Math.sqrt(dx * dx + dy * dy);
+      if (d > 0.5) {
+        const spd = Math.max(1.5, d * 0.12) * dt / 16;
+        c.x += (dx / d) * Math.min(d, spd);
+        c.y += (dy / d) * Math.min(d, spd);
+        more = true;
+      } else if (d > 0) {
+        c.x = c.targetX; c.y = c.targetY;
+      }
+    }
+    if (c.state === 'removing') {
+      const dx = c.tx - c.x, dy = c.ty - c.y;
+      const d  = Math.sqrt(dx * dx + dy * dy);
+      if (d > 0.5) {
+        const spd = Math.max(2, d * 0.14) * dt / 16;
+        c.x += (dx / d) * Math.min(d, spd);
+        c.y += (dy / d) * Math.min(d, spd);
+      }
+      c.removeScale = Math.max(0, c.removeScale - dt / 280);
+      if (c.removeScale > 0) more = true;
+    }
+  }
+
+  const before = chips.length;
+  chips = chips.filter(c => !(c.state === 'removing' && c.removeScale <= 0));
+  if (chips.length < before) {
+    reLayout(); // remaining chips slide into new positions
+    renderUI();
+  }
+
+  for (const b of bursts) { b.t += dt; if (b.t < b.dur) more = true; }
+  bursts = bursts.filter(b => b.t < b.dur);
+
+  drawMat();
+
+  // Keep running while there's a selected chip (for the pulse animation)
+  const hasSelected = chips.some(c => c.selected);
+  if (more || hasSelected) { rafId = requestAnimationFrame(rafLoop); }
+  else                     { rafId = null; lastTs = null; }
+}
+
+function scheduleRaf() {
+  if (!rafId) rafId = requestAnimationFrame(rafLoop);
+}
+
+// ── Draw ──────────────────────────────────────────────────────────────────────
+function drawMat() {
+  ctx.clearRect(0, 0, W, H);
+
+  // Background
+  ctx.fillStyle = '#0f1a2e';
+  ctx.beginPath(); ctx.roundRect(0, 0, W, H, 10); ctx.fill();
+
+  // Dot-grid texture
+  ctx.fillStyle = 'rgba(255,255,255,0.035)';
+  for (let x = 30; x < W; x += 38)
+    for (let y = 30; y < H; y += 38) {
+      ctx.beginPath(); ctx.arc(x, y, 1.5, 0, Math.PI * 2); ctx.fill();
+    }
+
+  // Zero-pair bracket: a rounded rect behind each pair + "= 0" label below
+  const pairedPos = chips.filter(c => c.type === '+' && c.paired && c.state !== 'removing');
+  for (const pc of pairedPos) {
+    const nc = chips.find(c => c.id === pc.pairedWithId);
+    if (!nc || nc.state === 'removing') continue;
+
+    const pad = 5;
+    const x1  = Math.min(pc.x, nc.x) - CHIP_R - pad;
+    const y1  = Math.min(pc.y, nc.y) - CHIP_R - pad;
+    const x2  = Math.max(pc.x, nc.x) + CHIP_R + pad;
+    const y2  = Math.max(pc.y, nc.y) + CHIP_R + pad;
+
+    ctx.fillStyle = 'rgba(245,166,35,0.07)';
+    ctx.beginPath(); ctx.roundRect(x1, y1, x2 - x1, y2 - y1, 9); ctx.fill();
+    ctx.strokeStyle = 'rgba(245,166,35,0.45)';
+    ctx.lineWidth   = 1.5;
+    ctx.beginPath(); ctx.roundRect(x1, y1, x2 - x1, y2 - y1, 9); ctx.stroke();
+
+    ctx.fillStyle    = 'rgba(245,166,35,0.9)';
+    ctx.font         = 'bold 11px Segoe UI, sans-serif';
+    ctx.textAlign    = 'center'; ctx.textBaseline = 'top';
+    ctx.fillText('= 0', (x1 + x2) / 2, y2 + 2);
+  }
+
+  // Burst rings
+  for (const b of bursts) {
+    const p = b.t / b.dur;
+    ctx.strokeStyle = `rgba(245,166,35,${(1 - p) * 0.7})`;
+    ctx.lineWidth   = 3 * (1 - p) + 0.5;
+    ctx.beginPath(); ctx.arc(b.x, b.y, CHIP_R * 2.8 * p, 0, Math.PI * 2); ctx.stroke();
+    if (p < 0.45) {
+      ctx.fillStyle = `rgba(245,166,35,${(0.45 - p) * 1.1})`;
+      ctx.beginPath(); ctx.arc(b.x, b.y, CHIP_R * 1.1 * p, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
+  // Chips
+  const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 350);
+
+  for (const c of chips) {
+    const s = c.state === 'removing' ? c.removeScale : c.scale;
+    if (s <= 0) continue;
+
+    ctx.save();
+    ctx.translate(c.x, c.y);
+    ctx.scale(s, s);
+
+    const base  = c.type === '+' ? POS_BASE  : NEG_BASE;
+    const light = c.type === '+' ? POS_LIGHT : NEG_LIGHT;
+
+    // Pulsing outer ring for selected chip
+    if (c.selected) {
+      ctx.strokeStyle = `rgba(245,166,35,${0.4 + 0.5 * pulse})`;
+      ctx.lineWidth   = 2.5;
+      ctx.beginPath(); ctx.arc(0, 0, CHIP_R + 8, 0, Math.PI * 2); ctx.stroke();
+    }
+
+    // Fading gold ring on a freshly added zero pair
+    if (c.flash > 0) {
+      ctx.strokeStyle = `rgba(245,166,35,${c.flash / FLASH_MS})`;
+      ctx.lineWidth   = 4;
+      ctx.beginPath(); ctx.arc(0, 0, CHIP_R + 6, 0, Math.PI * 2); ctx.stroke();
+    }
+
+    ctx.shadowColor = c.paired ? GOLD : c.selected ? GOLD : base;
+    ctx.shadowBlur  = c.paired ? 18 : c.selected ? (10 + 8 * pulse) : 10;
+
+    const grad = ctx.createRadialGradient(-CHIP_R * 0.3, -CHIP_R * 0.35, 0, 0, 0, CHIP_R);
+    grad.addColorStop(0, light);
+    grad.addColorStop(1, base);
+    ctx.fillStyle = grad;
+    ctx.beginPath(); ctx.arc(0, 0, CHIP_R, 0, Math.PI * 2); ctx.fill();
+
+    ctx.shadowBlur  = 0;
+    ctx.strokeStyle = (c.paired || c.selected) ? GOLD : 'rgba(255,255,255,0.3)';
+    ctx.lineWidth   = (c.paired || c.selected) ? 3 : 2;
+    ctx.stroke();
+
+    ctx.fillStyle    = 'white';
+    ctx.font         = `bold ${Math.round(CHIP_R * 1.1)}px Segoe UI, sans-serif`;
+    ctx.textAlign    = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(c.type === '+' ? '+' : '−', 0, 1);
+
+    ctx.restore();
+  }
+}
+
+// ── Clear ─────────────────────────────────────────────────────────────────────
+function clearMat() {
+  chips = []; bursts = [];
+  pendingId = null;
+  if (rafId) { cancelAnimationFrame(rafId); rafId = null; lastTs = null; }
+  renderUI(); drawMat();
+}
+
+// ── Keyboard shortcuts ────────────────────────────────────────────────────────
+window.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  if (e.key === '+' || e.key === '=')  { addChip('+'); e.preventDefault(); }
+  if (e.key === '-' || e.key === '_')  { addChip('-'); e.preventDefault(); }
+  if (e.key === 'Enter')               { removeZeroPairs(); e.preventDefault(); }
+  if (e.key === 'z' || e.key === 'Z')  { addZeroPair(); e.preventDefault(); }
+  if (e.key === 'Escape') {
+    if (pendingId !== null) {
+      const sel = chips.find(c => c.id === pendingId);
+      if (sel) sel.selected = false;
+      pendingId = null;
+      renderUI(); drawMat();
+    }
+    e.preventDefault();
+  }
+  if ((e.key === 'Backspace' || e.key === 'Delete') && !e.metaKey && !e.ctrlKey) {
+    // Remove the last chip that is neither paired nor animating
+    const last = [...chips].reverse().find(c => c.state === 'normal' && !c.paired);
+    if (last) {
+      if (last.id === pendingId) pendingId = null;
+      chips.splice(chips.indexOf(last), 1);
+      reLayout();
+      renderUI(); scheduleRaf();
+    }
+    e.preventDefault();
+  }
+});
+
+// ── Responsive canvas ─────────────────────────────────────────────────────────
+function resizeCanvas() {
+  const maxW  = Math.min(canvas.closest('.card').offsetWidth - 48, 640);
+  const scale = maxW / 640;
+  canvas.style.width  = maxW + 'px';
+  canvas.style.height = (360 * scale) + 'px';
+}
+window.addEventListener('resize', resizeCanvas);
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+resizeCanvas();
+drawMat();
+renderUI();
+</script>
+</body>
+</html>

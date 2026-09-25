@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Groups on a Number Line — Mr. J's Math 8</title>
+<style>
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    padding: 24px 16px 40px;
+    background: #1F3864;
+    color: #f1f5f9;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  h1 {
+    margin: 0;
+    font-size: 30px;
+    color: #F5A623;
+    text-align: center;
+  }
+
+  .subtitle {
+    margin: 4px 0 20px;
+    color: #94a3b8;
+    font-size: 16px;
+    text-align: center;
+  }
+
+  .card {
+    background: #142850;
+    border: 2px solid #2d4f8e;
+    border-radius: 14px;
+    padding: 18px;
+    width: 100%;
+    max-width: 980px;
+  }
+
+  /* ── SENTENCE ── */
+  .sentence {
+    text-align: center;
+    font-size: 25px;
+    font-weight: 600;
+    color: #F5A623;
+    min-height: 34px;
+    letter-spacing: .2px;
+  }
+
+  .equation {
+    text-align: center;
+    font-size: 26px;
+    font-weight: 600;
+    color: #f1f5f9;
+    min-height: 34px;
+    margin-top: 6px;
+    letter-spacing: 1px;
+  }
+
+  .equation.hidden { visibility: hidden; }
+
+  /* ── CANVAS ── */
+  canvas {
+    display: block;
+    width: 100%;
+    aspect-ratio: 940 / 300;
+    margin: 8px 0 4px;
+    background: #0f1a2e;
+    border: 2px solid #2d4f8e;
+    border-radius: 10px;
+    touch-action: manipulation;
+  }
+
+  .caption {
+    text-align: center;
+    color: #94a3b8;
+    font-size: 16px;
+    min-height: 24px;
+    margin-bottom: 14px;
+  }
+
+  /* ── CONTROLS ── */
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 14px 30px;
+  }
+
+  .ctrl {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .ctrl-label {
+    font-size: 18px;
+    color: #94a3b8;
+    font-weight: 600;
+  }
+
+  .stepper {
+    display: flex;
+    align-items: center;
+    background: #0f1a2e;
+    border: 2px solid #2d4f8e;
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .step-btn {
+    width: 46px;
+    height: 46px;
+    border: none;
+    background: transparent;
+    color: #f1f5f9;
+    font-size: 26px;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background .12s;
+  }
+
+  .step-btn:hover:not(:disabled) { background: #2d4f8e; }
+  .step-btn:disabled { color: #3f5578; cursor: default; }
+
+  .step-val {
+    min-width: 62px;
+    text-align: center;
+    font-size: 26px;
+    font-weight: 700;
+    padding: 0 4px;
+  }
+
+  #groupVal.pos { color: #60a5fa; }
+  #groupVal.neg { color: #f87171; }
+  #groupVal.zero { color: #94a3b8; }
+
+  .btn {
+    height: 46px;
+    padding: 0 20px;
+    border: 2px solid #2d4f8e;
+    border-radius: 10px;
+    background: #0f1a2e;
+    color: #f1f5f9;
+    font-family: inherit;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .12s, border-color .12s;
+  }
+
+  .btn:hover { background: #2d4f8e; }
+  .btn.on { border-color: #F5A623; color: #F5A623; }
+
+  .hint {
+    margin-top: 16px;
+    color: #7f93b0;
+    font-size: 14px;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+
+<h1>Groups on a Number Line</h1>
+<p class="subtitle">Multiplying Integers — Unit 1 · Grade 7 Math</p>
+
+<div class="card">
+  <div class="sentence" id="sentence"></div>
+  <div class="equation hidden" id="equation"></div>
+
+  <canvas id="cv"></canvas>
+  <div class="caption" id="caption"></div>
+
+  <div class="controls">
+    <div class="ctrl">
+      <span class="ctrl-label">Groups</span>
+      <div class="stepper">
+        <button class="step-btn" id="cMinus" onclick="bumpCount(-1)">−</button>
+        <span class="step-val" id="countVal">2</span>
+        <button class="step-btn" id="cPlus" onclick="bumpCount(1)">+</button>
+      </div>
+    </div>
+
+    <div class="ctrl">
+      <span class="ctrl-label">In each group</span>
+      <div class="stepper">
+        <button class="step-btn" id="gMinus" onclick="bumpGroup(-1)">−</button>
+        <span class="step-val" id="groupVal">−3</span>
+        <button class="step-btn" id="gPlus" onclick="bumpGroup(1)">+</button>
+      </div>
+    </div>
+
+    <button class="btn" id="eqBtn" onclick="toggleEquation()">Show multiplication</button>
+    <button class="btn" onclick="reset()">Reset</button>
+  </div>
+
+  <div class="hint">Arrow keys also work — ← → change the number of groups, ↑ ↓ change how many are in each group.</div>
+</div>
+
+<script>
+// ── Constants ────────────────────────────────────────────────────────────────
+const LIMIT      = 5;     // factors run from −5 to 5
+const MARGIN     = 34;    // canvas padding either side of the number line, in px
+const PAD        = 3;     // units of number line kept clear beyond the product
+const COL_POS    = '#60a5fa';
+const COL_NEG    = '#f87171';
+const COL_ZERO   = '#7f9bc4';
+const COL_GOLD   = '#F5A623';
+
+// ── State ────────────────────────────────────────────────────────────────────
+let count =  2;           // how many groups are put on / taken away  (first factor)
+let group = -3;           // how many are in each group               (second factor)
+let showEq = false;
+
+// Animated shadows of the state, so every change eases instead of snapping.
+let gDisp    = group;                       // group size being drawn
+let loDisp   = -8, hiDisp = 8;              // ends of the visible stretch of number line
+let arrowT   = new Array(LIMIT).fill(0);    // per-arrow reveal, 0 → 1
+
+const cv  = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+let W = 940, H = 320;
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+const fmt   = n => n < 0 ? '−' + Math.abs(n) : String(n);
+const paren = n => n < 0 ? '(' + fmt(n) + ')' : fmt(n);
+const plural = n => Math.abs(n) === 1 ? 'group' : 'groups';
+const lerp  = (a, b, rate, dt) => a + (b - a) * (1 - Math.exp(-rate * dt));
+
+function groupColor(g) {
+  return g > 0 ? COL_POS : g < 0 ? COL_NEG : COL_ZERO;
+}
+
+// ── Controls ─────────────────────────────────────────────────────────────────
+function bumpGroup(d) {
+  group = Math.max(-LIMIT, Math.min(LIMIT, group + d));
+  syncUI();
+}
+
+function bumpCount(d) {
+  count = Math.max(-LIMIT, Math.min(LIMIT, count + d));
+  syncUI();
+}
+
+function toggleEquation() {
+  showEq = !showEq;
+  syncUI();
+}
+
+function reset() {
+  group = -3;
+  count =  2;
+  syncUI();
+}
+
+document.addEventListener('keydown', e => {
+  if      (e.key === 'ArrowRight') bumpCount( 1);
+  else if (e.key === 'ArrowLeft')  bumpCount(-1);
+  else if (e.key === 'ArrowUp')    bumpGroup( 1);
+  else if (e.key === 'ArrowDown')  bumpGroup(-1);
+  else return;
+  e.preventDefault();
+});
+
+// ── UI text ──────────────────────────────────────────────────────────────────
+function syncUI() {
+  const gEl = document.getElementById('groupVal');
+  gEl.textContent = fmt(group);
+  gEl.className   = 'step-val ' + (group > 0 ? 'pos' : group < 0 ? 'neg' : 'zero');
+  document.getElementById('countVal').textContent = fmt(count);
+
+  document.getElementById('gMinus').disabled = group <= -LIMIT;
+  document.getElementById('gPlus' ).disabled = group >=  LIMIT;
+  document.getElementById('cMinus').disabled = count <= -LIMIT;
+  document.getElementById('cPlus' ).disabled = count >=  LIMIT;
+
+  // The model, stated in words — the symbols stay hidden until the teacher asks for them.
+  const sentence = document.getElementById('sentence');
+  if      (count > 0) sentence.textContent = `Put on ${count} ${plural(count)} of ${fmt(group)}`;
+  else if (count < 0) sentence.textContent = `Take away ${Math.abs(count)} ${plural(count)} of ${fmt(group)}`;
+  else                sentence.textContent = `No groups of ${fmt(group)}`;
+
+  const caption = document.getElementById('caption');
+  if      (count > 0) caption.textContent = 'Start at 0 and lay the groups down end to end.';
+  else if (count < 0) caption.textContent = 'The faded arrows are the groups that were taken away — put them back and you land on 0.';
+  else                caption.textContent = 'Nothing on the line yet.';
+
+  const eq    = document.getElementById('equation');
+  const eqBtn = document.getElementById('eqBtn');
+  // Number of groups first, size of each group second — 4 × (−3) is "4 groups of −3".
+  eq.textContent = `${paren(count)} × ${paren(group)} = ${fmt(count * group)}`;
+  eq.classList.toggle('hidden', !showEq);
+  eqBtn.classList.toggle('on', showEq);
+  eqBtn.textContent = showEq ? 'Hide multiplication' : 'Show multiplication';
+}
+
+// ── Sizing ───────────────────────────────────────────────────────────────────
+function fit() {
+  const rect = cv.getBoundingClientRect();
+  const dpr  = window.devicePixelRatio || 1;
+  cv.width   = Math.round(rect.width  * dpr);
+  cv.height  = Math.round(rect.height * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  W = rect.width;
+  H = rect.height;
+}
+
+window.addEventListener('resize', fit);
+
+// ── Animation ────────────────────────────────────────────────────────────────
+function update(dt) {
+  gDisp = lerp(gDisp, group, 14, dt);
+
+  const k = Math.abs(count);
+  for (let i = 0; i < LIMIT; i++) {
+    arrowT[i] = lerp(arrowT[i], i < k ? 1 : 0, 12, dt);
+    if (Math.abs(arrowT[i] - (i < k ? 1 : 0)) < 0.002) arrowT[i] = i < k ? 1 : 0;
+  }
+
+  // Frame 0 and the product, keeping a little of the far side of zero in view.
+  const p  = group * count;
+  const lo = Math.min(-4, p - PAD, group - PAD);
+  const hi = Math.max( 4, p + PAD, group + PAD);
+  loDisp = lerp(loDisp, lo, 6, dt);
+  hiDisp = lerp(hiDisp, hi, 6, dt);
+}
+
+// ── Drawing ──────────────────────────────────────────────────────────────────
+function drawArrow(x1, x2, y, color, ghost) {
+  const len = Math.abs(x2 - x1);
+  if (len < 1.5) return;
+  const dir  = x2 > x1 ? 1 : -1;
+  const head = Math.min(15, Math.max(5, len * 0.4));
+  const tail = x2 - dir * head;
+
+  ctx.save();
+  ctx.globalAlpha = ghost ? 0.5 : 1;
+  ctx.strokeStyle = color;
+  ctx.fillStyle   = color;
+  ctx.lineWidth   = 5;
+  ctx.lineCap     = 'round';
+  if (ghost) ctx.setLineDash([8, 6]);
+
+  ctx.beginPath();
+  ctx.moveTo(x1, y);
+  ctx.lineTo(tail, y);
+  ctx.stroke();
+
+  ctx.setLineDash([]);
+  ctx.beginPath();
+  ctx.moveTo(x2, y);
+  ctx.lineTo(tail, y - 9);
+  ctx.lineTo(tail, y + 9);
+  ctx.closePath();
+  if (ghost) { ctx.lineWidth = 3; ctx.stroke(); } else { ctx.fill(); }
+  ctx.restore();
+}
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+
+  const lineY   = H - 102;
+  const arrowY  = lineY - 54;
+  const span    = hiDisp - loDisp;
+  const scale   = (W - 2 * MARGIN) / span;
+  const x       = v => MARGIN + (v - loDisp) * scale;
+  const color   = groupColor(group);
+
+  // ── Number line ──
+  ctx.strokeStyle = '#7c9bd0';
+  ctx.lineWidth   = 4;
+  ctx.lineCap     = 'round';
+  ctx.beginPath();
+  ctx.moveTo(x(loDisp) + 6, lineY);
+  ctx.lineTo(x(hiDisp) - 6, lineY);
+  ctx.stroke();
+
+  const labelStep = span <= 14 ? 1 : span <= 26 ? 2 : 5;
+  ctx.textAlign = 'center';
+
+  for (let v = Math.ceil(loDisp); v <= Math.floor(hiDisp); v++) {
+    const px    = x(v);
+    const isZero = v === 0;
+    const label = isZero || v % labelStep === 0;
+
+    ctx.strokeStyle = isZero ? '#f1f5f9' : label ? '#5f83bd' : '#3d5a8c';
+    ctx.lineWidth   = isZero ? 4 : label ? 3 : 2;
+    ctx.beginPath();
+    ctx.moveTo(px, lineY - (isZero ? 14 : label ? 10 : 6));
+    ctx.lineTo(px, lineY + (isZero ? 14 : label ? 10 : 6));
+    ctx.stroke();
+
+    if (label) {
+      ctx.fillStyle = isZero ? '#f1f5f9' : '#94a3b8';
+      ctx.font      = (isZero ? '700 ' : '400 ') + '17px "Segoe UI", system-ui, sans-serif';
+      ctx.fillText(fmt(v), px, lineY + 32);
+    }
+  }
+
+  // ── Where the groups sit ──
+  const kEff      = arrowT.reduce((a, b) => a + b, 0);
+  const dir       = count < 0 ? -1 : 1;
+  const markerVal = dir * kEff * gDisp;
+  const ghost     = count < 0;
+  const startVal  = ghost ? markerVal : 0;
+
+  // Home base at 0, so the start (or the place you'd land on putting the groups back) reads clearly.
+  ctx.strokeStyle = '#94a3b8';
+  ctx.lineWidth   = 3;
+  ctx.beginPath();
+  ctx.arc(x(0), lineY, 8, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // ── The chain of groups ──
+  let cur = startVal;
+  for (let i = 0; i < LIMIT; i++) {
+    const t = arrowT[i];
+    if (t <= 0.004) continue;
+    const next = cur + gDisp * t;
+    drawArrow(x(cur), x(next), arrowY, color, ghost);
+
+    // Label each arrow only when there is room for the text to sit inside it.
+    const len = Math.abs(x(next) - x(cur));
+    if (len >= 36 && t > 0.75) {
+      ctx.save();
+      ctx.globalAlpha = ghost ? 0.6 : 1;
+      ctx.fillStyle   = color;
+      ctx.font        = '700 18px "Segoe UI", system-ui, sans-serif';
+      ctx.textAlign   = 'center';
+      ctx.fillText(fmt(group), (x(cur) + x(next)) / 2, arrowY - 16);
+      ctx.restore();
+    }
+    cur = next;
+  }
+
+  // ── Drop line from the end of the chain to the number line ──
+  if (kEff > 0.02 && Math.abs(markerVal) > 0.02) {
+    ctx.save();
+    ctx.strokeStyle = '#F5A623';
+    ctx.globalAlpha = 0.45;
+    ctx.lineWidth   = 2;
+    ctx.setLineDash([4, 5]);
+    ctx.beginPath();
+    ctx.moveTo(x(markerVal), arrowY + 12);
+    ctx.lineTo(x(markerVal), lineY - 14);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // ── Where you land ──
+  ctx.fillStyle   = COL_GOLD;
+  ctx.strokeStyle = '#0f1a2e';
+  ctx.lineWidth   = 3;
+  ctx.beginPath();
+  ctx.arc(x(markerVal), lineY, 13, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.fillStyle = COL_GOLD;
+  ctx.font      = '700 28px "Segoe UI", system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(fmt(group * count), x(markerVal), lineY + 68);
+
+  // ── Key: one group, drawn at the same scale as the line ──
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#94a3b8';
+  ctx.font      = '600 15px "Segoe UI", system-ui, sans-serif';
+  ctx.fillText('each group', 26, 32);
+  ctx.fillStyle = color;
+  ctx.font      = '700 17px "Segoe UI", system-ui, sans-serif';
+  ctx.fillText(fmt(group), 118, 32);
+
+  // Always hugs the left edge, pointing whichever way the group does.
+  const keyLen = Math.abs(gDisp) * scale;
+  drawArrow(gDisp >= 0 ? 26 : 26 + keyLen,
+            gDisp >= 0 ? 26 + keyLen : 26,
+            60, color, false);
+}
+
+// ── Loop ─────────────────────────────────────────────────────────────────────
+let last = performance.now();
+
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now;
+  update(dt);
+  draw();
+  requestAnimationFrame(frame);
+}
+
+fit();
+syncUI();
+requestAnimationFrame(frame);
+</script>
+
+</body>
+</html>

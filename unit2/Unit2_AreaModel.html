@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Area Model — Mr. J's Math 8</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: #1F3864;
+    color: #f1f5f9;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px 16px 40px;
+    user-select: none;
+  }
+
+  h1 { font-size: 1.6rem; font-weight: 700; color: #F5A623; text-align: center; }
+  .subtitle { font-size: 0.9rem; color: #94a3b8; margin: 4px 0 16px; text-align: center; }
+
+  .card {
+    background: #142850; border-radius: 14px; padding: 18px;
+    width: 100%; max-width: 1040px;
+    border: 1px solid #2d4f8e;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  }
+
+  .layout {
+    display: flex; gap: 20px; align-items: flex-start; justify-content: center;
+  }
+  @media (max-width: 860px) {
+    .layout { flex-direction: column; align-items: center; }
+  }
+
+  /* ── CANVAS ── */
+  .canvas-col { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  canvas {
+    display: block;
+    border-radius: 10px;
+    border: 1px solid #2d4f8e;
+  }
+  .step-label {
+    font-size: 1.1rem; font-weight: 600; color: #f1f5f9;
+    text-align: center; min-height: 1.6em; max-width: 620px;
+  }
+  .step-label.muted { color: #94a3b8; font-size: 0.9rem; font-weight: 500; }
+
+  /* ── PANEL ── */
+  .panel {
+    width: 300px; max-width: 100%;
+    display: flex; flex-direction: column; gap: 14px;
+  }
+
+  .mode-toggle {
+    display: flex; background: #0f1a2e; border: 1px solid #2d4f8e;
+    border-radius: 10px; padding: 4px; gap: 4px;
+  }
+  .mode-btn {
+    flex: 1; padding: 10px 8px; border: none; border-radius: 7px;
+    background: transparent; color: #94a3b8;
+    font-family: inherit; font-size: 1rem; font-weight: 700; cursor: pointer;
+  }
+  .mode-btn.active { background: #2d4f8e; color: #f1f5f9; }
+  .mode-btn:disabled { cursor: not-allowed; }
+
+  .expr {
+    text-align: center; font-size: 2.4rem; font-weight: 800;
+    background: #0f1a2e; border: 1px solid #2d4f8e; border-radius: 10px;
+    padding: 10px 6px; white-space: nowrap;
+  }
+  .expr .times { color: #94a3b8; margin: 0 8px; }
+
+  .stepper {
+    background: #0f1a2e; border: 1px solid #2d4f8e; border-radius: 10px;
+    padding: 10px 12px;
+  }
+  .step-title { font-size: 0.8rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.04em; text-align: center; }
+  .step-row { display: flex; align-items: center; justify-content: space-between; margin-top: 6px; }
+  .step-btn {
+    width: 52px; height: 52px; border-radius: 10px; border: none;
+    background: #2d4f8e; color: #f1f5f9; font-size: 1.8rem; font-weight: 800;
+    cursor: pointer; font-family: inherit; transition: transform 0.1s;
+  }
+  .step-btn:hover:not(:disabled) { background: #3a63b0; }
+  .step-btn:active { transform: scale(0.93); }
+  .step-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+  .step-val { font-size: 2.2rem; font-weight: 800; min-width: 80px; text-align: center; }
+
+  .btn {
+    width: 100%;
+    padding: 12px 16px; border-radius: 9px; border: none;
+    font-size: 1.05rem; font-weight: 700; cursor: pointer;
+    font-family: inherit; transition: transform 0.1s, box-shadow 0.1s, background 0.1s;
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+  .btn-primary { background: #F5A623; color: #1F3864; box-shadow: 0 4px 14px rgba(245,166,35,0.3); font-size: 1.2rem; }
+  .btn-primary:hover:not(:disabled) { box-shadow: 0 6px 20px rgba(245,166,35,0.5); }
+  .btn-secondary { background: #2d4f8e; color: #f1f5f9; }
+  .btn-secondary:hover:not(:disabled) { background: #3a63b0; }
+  .btn-build { background: #142850; color: #F5A623; border: 2px solid #F5A623; font-size: 1.15rem; }
+  .btn-build:hover:not(:disabled) { background: rgba(245,166,35,0.15); }
+  .btn-row { display: flex; gap: 10px; }
+  .hidden { display: none !important; }
+
+  .product-box {
+    background: #0f1a2e; border: 1px solid #2d4f8e; border-radius: 10px;
+    padding: 10px 12px; text-align: center;
+  }
+  .product-val { font-size: 2.4rem; font-weight: 800; min-height: 3.2rem; line-height: 3.2rem; color: #94a3b8; }
+  .product-box .btn { margin-top: 6px; }
+
+  .pos { color: #60a5fa; }
+  .neg { color: #f87171; }
+  .zero { color: #f1f5f9; }
+</style>
+</head>
+<body>
+
+<h1>Area Model</h1>
+<p class="subtitle">Multiplying Integers — Unit 1 · Grade 7 Math</p>
+
+<div class="card">
+  <div class="layout">
+
+    <div class="canvas-col">
+      <canvas id="mat"></canvas>
+      <div class="step-label" id="stepLabel"></div>
+    </div>
+
+    <div class="panel">
+      <div class="mode-toggle">
+        <button class="mode-btn active" id="modeSquares" onclick="setMode('squares')">▦ Squares</button>
+        <button class="mode-btn"        id="modeChips"   onclick="setMode('chips')">● Chips</button>
+      </div>
+
+      <div class="expr" id="expr"></div>
+
+      <div class="stepper">
+        <div class="step-title" id="wTitle"></div>
+        <div class="step-row">
+          <button class="step-btn" id="wMinus" onclick="nudge(-1, 0)">−</button>
+          <div class="step-val" id="wVal"></div>
+          <button class="step-btn" id="wPlus"  onclick="nudge(1, 0)">+</button>
+        </div>
+      </div>
+
+      <div class="stepper">
+        <div class="step-title" id="hTitle"></div>
+        <div class="step-row">
+          <button class="step-btn" id="hMinus" onclick="nudge(0, -1)">−</button>
+          <div class="step-val" id="hVal"></div>
+          <button class="step-btn" id="hPlus"  onclick="nudge(0, 1)">+</button>
+        </div>
+      </div>
+
+      <!-- Chips mode: build controls -->
+      <div class="btn-row hidden" id="chipControls">
+        <button class="btn btn-build"     id="btnNext"    onclick="nextStep()">Next Step ▶</button>
+        <button class="btn btn-secondary" id="btnRestart" onclick="restartBuild()" style="width:auto; white-space:nowrap; padding:12px 14px">Start Over</button>
+      </div>
+
+      <button class="btn btn-primary" id="btnFlip" onclick="startFlip()">⤢ Flip It</button>
+
+      <div class="btn-row">
+        <button class="btn btn-secondary" id="btnCount" onclick="toggleCount()">Count Squares</button>
+        <button class="btn btn-secondary" onclick="resetAll()">Reset</button>
+      </div>
+
+      <div class="product-box">
+        <div class="step-title">Product</div>
+        <div class="product-val" id="prodVal">?</div>
+        <button class="btn btn-secondary" id="btnReveal" onclick="toggleReveal()">Reveal</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+'use strict';
+
+// ── Canvas setup (logical 640×640, crisp on high-DPI projectors) ──────────────
+const canvas = document.getElementById('mat');
+const ctx    = canvas.getContext('2d');
+const SIZE   = 640;
+const MAXN   = 8;       // factors range −8 … 8
+const FIT    = 480;     // px the largest possible square (max side × max side) may use
+
+const GOLD   = '#F5A623';
+const PURPLE = '#a78bfa';
+const MINUS  = '−';
+const CHIP = {
+  '1':  { base: '#3b82f6', light: '#60a5fa', glyph: '+' },
+  '-1': { base: '#f87171', light: '#fca5a5', glyph: MINUS },
+};
+
+function fitCanvas() {
+  const dpr    = window.devicePixelRatio || 1;
+  const colW   = Math.min(document.querySelector('.card').clientWidth - 36, SIZE);
+  const availH = window.innerHeight - 170;
+  const px     = Math.max(300, Math.min(colW, availH, SIZE));
+  canvas.style.width  = px + 'px';
+  canvas.style.height = px + 'px';
+  canvas.width  = Math.round(SIZE * dpr);
+  canvas.height = Math.round(SIZE * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  draw();
+}
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let mode = 'squares';
+let w = 4, h = 3;                     // first number (across / groups), second (down / chips per group)
+let wColor = GOLD, hColor = PURPLE;   // colors travel with the numbers when flipped
+let ghost = null;                     // {w, h} outline from before the last flip
+let flip  = null;                     // {t: 0 → 1} while flipping
+let counting = false, countShown = 0, countAcc = 0;
+let cellOrder = null;                 // Map "i,j" → count number, carried through flips
+let revealed = false;
+let rafId = null, lastTs = null;
+
+// Chips mode
+let chips   = [];                     // {i, j, sign, ox, oy, tox, toy, r, scale, delay, removing, lift}
+let steps   = [];                     // build steps for the current factors
+let stepIdx = 0;
+let flipNote = '';                    // message shown after a finished build is flipped
+
+const fmt      = n => n < 0 ? MINUS + Math.abs(n) : String(n);
+const fmtParen = n => n < 0 ? `(${MINUS}${Math.abs(n)})` : String(n);
+const plural   = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+
+// ── Geometry ──────────────────────────────────────────────────────────────────
+// Local coordinates are in cells: x across (right), y down, anchored at the
+// rectangle's top-left corner. Flipping reflects across the line x = y.
+function layout() {
+  const m    = Math.max(Math.abs(w), Math.abs(h), 1);
+  const cell = Math.min(76, FIT / m);
+  const ax   = (SIZE - m * cell) / 2 + 14;   // nudge right/down to leave room for labels
+  const ay   = (SIZE - m * cell) / 2 + 14;
+  return { cell, ax, ay };
+}
+
+// Rotate the plane in 3D about the diagonal by θ: θ = π turns (x, y) into (y, x)
+function flipPt(x, y, theta) {
+  const a = (x + y) / 2, b = (x - y) / 2, c = Math.cos(theta);
+  return [a + c * b, a - c * b];
+}
+
+function ease(t) { return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; }
+
+function buildCellOrder() {
+  cellOrder = new Map();
+  let n = 1;
+  for (let j = 0; j < Math.abs(h); j++)
+    for (let i = 0; i < Math.abs(w); i++)
+      cellOrder.set(`${i},${j}`, n++);
+}
+
+// ── Chips: build steps ────────────────────────────────────────────────────────
+// First number = how many groups (columns). Positive → add groups, negative → take groups away.
+// Second number = the chips in each group (its sign is the chip color).
+function signWord(s) { return s > 0 ? 'positive' : 'negative'; }
+
+function makeSteps() {
+  const groups = Math.abs(w), size = Math.abs(h), sign = Math.sign(h);
+  steps = [];
+  if (groups === 0 || size === 0) return;
+
+  if (w > 0) {
+    for (let g = 0; g < groups; g++) {
+      steps.push({
+        run: () => addColumn(g, sign),
+        msg: `Added ${g + 1} of ${groups} group${groups === 1 ? '' : 's'} of ${plural(size, signWord(sign) + ' chip')}`,
+      });
+    }
+  } else {
+    steps.push({
+      run: addZeroPairs,
+      msg: `Added ${plural(groups * size, 'zero pair')} — the mat is still worth 0. Now there are chips to take away`,
+    });
+    for (let g = 0; g < groups; g++) {
+      steps.push({
+        run: () => removeColumn(g, sign),
+        msg: `Took away ${g + 1} of ${groups} group${groups === 1 ? '' : 's'} of ${plural(size, signWord(sign) + ' chip')}`,
+      });
+    }
+  }
+}
+
+function startMessage() {
+  const groups = Math.abs(w), size = Math.abs(h), sign = Math.sign(h);
+  if (groups === 0) return `${fmt(w)} groups: nothing to add or take away. Press Reveal when ready.`;
+  if (size === 0)   return `Groups of 0 chips: nothing to add or take away. Press Reveal when ready.`;
+  const group = `${plural(size, signWord(sign) + ' chip')}`;
+  if (w > 0) return `${fmt(w)} means add ${groups} group${groups === 1 ? '' : 's'} of ${group}. Press Next Step.`;
+  return `${fmt(w)} means take away ${groups} group${groups === 1 ? '' : 's'} of ${group} — but the mat is empty! Press Next Step.`;
+}
+
+function newChip(i, j, sign, ox, oy, r, delay) {
+  return { i, j, sign, ox, oy, tox: ox, toy: oy, r, scale: 0, delay, removing: false, lift: 0 };
+}
+
+const R_SINGLE = 0.36, R_PAIR = 0.29, PAIR_OFF = 0.17;   // in cell units
+
+function addColumn(g, sign) {
+  for (let j = 0; j < Math.abs(h); j++)
+    chips.push(newChip(g, j, sign, 0.5, 0.5, R_SINGLE, j * 70));
+}
+
+function addZeroPairs() {
+  for (let i = 0; i < Math.abs(w); i++)
+    for (let j = 0; j < Math.abs(h); j++) {
+      const d = (i + j) * 35;
+      chips.push(newChip(i, j,  1, 0.5 - PAIR_OFF, 0.5 - PAIR_OFF, R_PAIR, d));
+      chips.push(newChip(i, j, -1, 0.5 + PAIR_OFF, 0.5 + PAIR_OFF, R_PAIR, d));
+    }
+}
+
+function removeColumn(g, sign) {
+  for (const c of chips) {
+    if (c.i !== g || c.removing) continue;
+    if (c.sign === sign) { c.removing = true; c.delay = c.j * 70; }
+    else { c.tox = 0.5; c.toy = 0.5; c.growTo = R_SINGLE; c.slideDelay = c.j * 70 + 250; }
+  }
+}
+
+function nextStep() {
+  if (flip || stepIdx >= steps.length) return;
+  steps[stepIdx].run();
+  stepIdx++;
+  flipNote = '';
+  renderUI(); schedule();
+}
+
+function restartBuild() {
+  if (flip) return;
+  chips = []; stepIdx = 0; flipNote = '';
+  makeSteps();
+  renderUI(); draw();
+}
+
+// ── Changing things ───────────────────────────────────────────────────────────
+function setFactors(nw, nh) {
+  nw = Math.max(-MAXN, Math.min(MAXN, nw));
+  nh = Math.max(-MAXN, Math.min(MAXN, nh));
+  if (flip || (nw === w && nh === h)) return;
+  w = nw; h = nh;
+  wColor = GOLD; hColor = PURPLE;
+  ghost = null;
+  counting = false; countShown = 0; cellOrder = null;
+  revealed = false;
+  restartBuild();
+}
+
+function nudge(dw, dh) { setFactors(w + dw, h + dh); }
+
+function resetAll() {
+  if (flip) return;
+  w = 0; h = 0;          // force setFactors to see 4 × 3 as a change
+  setFactors(4, 3);
+}
+
+function setMode(m) {
+  if (flip || m === mode) return;
+  mode = m;
+  counting = false; countShown = 0;
+  ghost = null;
+  restartBuild();
+}
+
+// ── Flip (commutative property) ───────────────────────────────────────────────
+function startFlip() {
+  if (flip) return;
+  if (mode === 'chips' && stepIdx < steps.length) chips = [];   // only a finished build flips with its chips
+  if (!cellOrder) buildCellOrder();
+  ghost = { w, h };
+  flip = { t: 0 };
+  renderUI(); schedule();
+}
+
+function finishFlip() {
+  const next = new Map();
+  for (const [key, n] of cellOrder) {
+    const [i, j] = key.split(',').map(Number);
+    next.set(`${j},${i}`, n);
+  }
+  cellOrder = next;
+  for (const c of chips) {
+    [c.i, c.j]     = [c.j, c.i];
+    [c.ox, c.oy]   = [c.oy, c.ox];
+    [c.tox, c.toy] = [c.toy, c.tox];
+  }
+  const wasBuilt = chips.length > 0;
+  [w, h] = [h, w];
+  [wColor, hColor] = [hColor, wColor];
+  flip = null;
+  makeSteps();
+  stepIdx = wasBuilt ? steps.length : 0;
+  if (wasBuilt) {
+    const size = Math.abs(h), groups = Math.abs(w);
+    flipNote = `Flipped! The same chips now make ${groups} group${groups === 1 ? '' : 's'} of ${size}. ` +
+      `Try Start Over to build ${fmtParen(w)} × ${fmtParen(h)} a new way.`;
+  }
+  renderUI();
+}
+
+// ── Counting / reveal ─────────────────────────────────────────────────────────
+function toggleCount() {
+  if (flip) return;
+  if (counting) { counting = false; countShown = 0; renderUI(); draw(); return; }
+  if (!cellOrder) buildCellOrder();
+  counting = true; countShown = 0; countAcc = 0;
+  renderUI(); schedule();
+}
+
+function toggleReveal() { revealed = !revealed; renderUI(); }
+
+// ── UI ────────────────────────────────────────────────────────────────────────
+function renderUI() {
+  const chipsMode = mode === 'chips';
+  const busy = !!flip;
+
+  document.getElementById('modeSquares').classList.toggle('active', !chipsMode);
+  document.getElementById('modeChips').classList.toggle('active', chipsMode);
+
+  const colorSpan = (n, c) => `<span style="color:${c}">${fmtParen(n)}</span>`;
+  document.getElementById('expr').innerHTML =
+    `${colorSpan(w, wColor)}<span class="times">×</span>${colorSpan(h, hColor)}`;
+
+  document.getElementById('wTitle').textContent = chipsMode ? 'First number · groups' : 'First number · across ↔';
+  document.getElementById('hTitle').textContent = chipsMode ? 'Second number · chips in each group' : 'Second number · down ↕';
+
+  const wv = document.getElementById('wVal'), hv = document.getElementById('hVal');
+  wv.textContent = fmt(w); wv.style.color = wColor;
+  hv.textContent = fmt(h); hv.style.color = hColor;
+
+  document.getElementById('wMinus').disabled = busy || w <= -MAXN;
+  document.getElementById('wPlus').disabled  = busy || w >=  MAXN;
+  document.getElementById('hMinus').disabled = busy || h <= -MAXN;
+  document.getElementById('hPlus').disabled  = busy || h >=  MAXN;
+  document.getElementById('btnFlip').disabled = busy;
+
+  document.getElementById('chipControls').classList.toggle('hidden', !chipsMode);
+  document.getElementById('btnNext').disabled = busy || stepIdx >= steps.length;
+  document.getElementById('btnRestart').disabled = busy || chips.length === 0;
+
+  const btnCount = document.getElementById('btnCount');
+  btnCount.classList.toggle('hidden', chipsMode);
+  btnCount.disabled = busy || w === 0 || h === 0;
+  btnCount.textContent = counting ? 'Hide Count' : 'Count Squares';
+
+  const p  = w * h;
+  const pv = document.getElementById('prodVal');
+  pv.textContent = revealed ? fmt(p) : '?';
+  pv.className   = 'product-val' + (revealed ? (p > 0 ? ' pos' : p < 0 ? ' neg' : ' zero') : '');
+  document.getElementById('btnReveal').textContent = revealed ? 'Hide' : 'Reveal';
+
+  const label = document.getElementById('stepLabel');
+  if (!chipsMode) {
+    label.className = 'step-label muted';
+    label.textContent = 'Use the − / + buttons or the arrow keys to change the numbers';
+  } else {
+    label.className = 'step-label';
+    if (busy)                label.textContent = '';
+    else if (flipNote)       label.textContent = flipNote;
+    else if (stepIdx === 0)  label.textContent = startMessage();
+    else label.textContent = steps[stepIdx - 1].msg +
+      (stepIdx >= steps.length ? '. What is left on the mat?' : '.');
+  }
+}
+
+// ── Animation loop ────────────────────────────────────────────────────────────
+function schedule() { if (!rafId) rafId = requestAnimationFrame(loop); }
+
+function loop(ts) {
+  if (!lastTs) lastTs = ts;
+  const dt = Math.min(ts - lastTs, 50);
+  lastTs = ts;
+  let more = false;
+
+  if (flip) {
+    flip.t = Math.min(1, flip.t + dt / 1600);
+    if (flip.t >= 1) finishFlip(); else more = true;
+  }
+
+  const total = Math.abs(w * h);
+  if (counting && countShown < total) {
+    const stepMs = Math.max(50, Math.min(320, 2800 / total));
+    countAcc += dt;
+    while (countAcc >= stepMs && countShown < total) { countAcc -= stepMs; countShown++; }
+    more = true;
+  }
+
+  for (const c of chips) {
+    if (c.delay > 0) { c.delay -= dt; more = true; continue; }
+    if (c.removing) {
+      c.lift  += dt * 0.12;
+      c.scale  = Math.max(0, c.scale - dt / 350);
+      if (c.scale > 0) more = true;
+      continue;
+    }
+    if (c.scale < 1) { c.scale = Math.min(1, c.scale + dt / 160); more = true; }
+    if (c.slideDelay > 0) { c.slideDelay -= dt; more = true; continue; }
+    const dx = c.tox - c.ox, dy = c.toy - c.oy;
+    if (Math.abs(dx) + Math.abs(dy) > 0.002) {
+      const k = Math.min(1, dt / 120);
+      c.ox += dx * k; c.oy += dy * k;
+      if (c.growTo) c.r += (c.growTo - c.r) * k;
+      more = true;
+    } else {
+      c.ox = c.tox; c.oy = c.toy;
+      if (c.growTo) { c.r = c.growTo; c.growTo = 0; }
+    }
+  }
+  chips = chips.filter(c => !(c.removing && c.scale <= 0));
+
+  draw();
+  if (more) rafId = requestAnimationFrame(loop);
+  else { rafId = null; lastTs = null; }
+}
+
+// ── Drawing ───────────────────────────────────────────────────────────────────
+function draw() {
+  ctx.clearRect(0, 0, SIZE, SIZE);
+  ctx.fillStyle = '#0f1a2e';
+  ctx.beginPath(); ctx.roundRect(0, 0, SIZE, SIZE, 10); ctx.fill();
+
+  const { cell, ax, ay } = layout();
+  const theta = flip ? Math.PI * ease(flip.t) : 0;
+  const P = (x, y) => { const [fx, fy] = flipPt(x, y, theta); return [ax + fx * cell, ay + fy * cell]; };
+
+  const aw = Math.abs(w), ah = Math.abs(h);
+  const chipsMode = mode === 'chips';
+
+  // Ghost outline of the shape before the flip
+  if (ghost && !flip) {
+    ctx.setLineDash([10, 8]);
+    ctx.strokeStyle = 'rgba(241,245,249,0.45)';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(ax, ay, Math.abs(ghost.w) * cell, Math.abs(ghost.h) * cell);
+    ctx.setLineDash([]);
+  }
+
+  if (aw && ah) {
+    // Cells
+    const shade = flip ? 0.55 + 0.45 * Math.abs(Math.cos(theta)) : 1;
+    ctx.globalAlpha = shade;
+    for (let j = 0; j < ah; j++) {
+      for (let i = 0; i < aw; i++) {
+        const pts = [[i, j], [i + 1, j], [i + 1, j + 1], [i, j + 1]].map(([x, y]) => P(x, y));
+        ctx.beginPath();
+        ctx.moveTo(...pts[0]); for (let k = 1; k < 4; k++) ctx.lineTo(...pts[k]);
+        ctx.closePath();
+        ctx.fillStyle = chipsMode ? 'rgba(45,79,142,0.25)' : 'rgba(96,125,180,0.55)';
+        ctx.fill();
+        ctx.strokeStyle = chipsMode ? 'rgba(148,163,184,0.25)' : 'rgba(255,255,255,0.35)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+    }
+    ctx.globalAlpha = 1;
+
+    // Outline
+    const outline = [[0, 0], [aw, 0], [aw, ah], [0, ah]].map(([x, y]) => P(x, y));
+    ctx.strokeStyle = 'rgba(241,245,249,0.8)'; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(...outline[0]);
+    for (let k = 1; k < 4; k++) ctx.lineTo(...outline[k]);
+    ctx.closePath(); ctx.stroke();
+
+    // Side lengths: top edge = first number, left edge = second number
+    ctx.lineCap = 'round'; ctx.lineWidth = 7;
+    ctx.strokeStyle = wColor;
+    ctx.beginPath(); ctx.moveTo(...P(0, 0)); ctx.lineTo(...P(aw, 0)); ctx.stroke();
+    ctx.strokeStyle = hColor;
+    ctx.beginPath(); ctx.moveTo(...P(0, 0)); ctx.lineTo(...P(0, ah)); ctx.stroke();
+    ctx.lineCap = 'butt';
+  }
+
+  // Chips
+  if (chipsMode) {
+    for (const c of chips) {
+      if (c.scale <= 0) continue;
+      const [cx, cy] = P(c.i + c.ox, c.j + c.oy);
+      drawChip(cx, cy - c.lift, c.r * cell * c.scale, c.sign);
+    }
+  }
+
+  // Count numbers (they ride along with their squares during a flip)
+  if (!chipsMode && counting && cellOrder && aw && ah) {
+    ctx.font = `bold ${Math.round(Math.min(26, Math.max(17, cell * 0.36)))}px Segoe UI, sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    for (let j = 0; j < ah; j++) {
+      for (let i = 0; i < aw; i++) {
+        const n = cellOrder.get(`${i},${j}`);
+        if (!n || n > countShown) continue;
+        const [cx, cy] = P(i + 0.5, j + 0.5);
+        ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(15,26,46,0.8)';
+        ctx.strokeText(n, cx, cy + 1);
+        ctx.fillStyle = 'white';
+        ctx.fillText(n, cx, cy + 1);
+      }
+    }
+  }
+
+  // Diagonal "hinge" line while flipping
+  if (flip) {
+    const m = Math.max(aw, ah, 1);
+    ctx.setLineDash([12, 10]);
+    ctx.strokeStyle = `rgba(245,166,35,${0.8 * Math.sin(Math.PI * flip.t)})`;
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(ax - 20, ay - 20); ctx.lineTo(ax + m * cell + 20, ay + m * cell + 20); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Side-length labels (outside the top and left edges)
+  if (aw || ah) {
+    const off = 32 / cell;
+    label(fmt(w), wColor, ...P(aw / 2, -off));
+    label(fmt(h), hColor, ...P(-off, ah / 2));
+  }
+}
+
+function drawChip(x, y, r, sign) {
+  const { base, light, glyph } = CHIP[sign];
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,0,0,0.45)'; ctx.shadowBlur = 8;
+  const grad = ctx.createRadialGradient(x - r * 0.3, y - r * 0.35, 0, x, y, r);
+  grad.addColorStop(0, light);
+  grad.addColorStop(1, base);
+  ctx.fillStyle = grad;
+  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = 'rgba(255,255,255,0.4)'; ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.fillStyle = 'white';
+  ctx.font = `bold ${Math.round(r * 1.2)}px Segoe UI, sans-serif`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(glyph, x, y + 1);
+  ctx.restore();
+}
+
+function label(text, color, x, y) {
+  ctx.font = 'bold 30px Segoe UI, sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.lineWidth = 6; ctx.strokeStyle = '#0f1a2e'; ctx.lineJoin = 'round';
+  ctx.strokeText(text, x, y);
+  ctx.fillStyle = color;
+  ctx.fillText(text, x, y);
+}
+
+// ── Keyboard ──────────────────────────────────────────────────────────────────
+window.addEventListener('keydown', e => {
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  const k = e.key;
+  if (k === 'ArrowRight') nudge(1, 0);
+  else if (k === 'ArrowLeft')  nudge(-1, 0);
+  else if (k === 'ArrowUp')    nudge(0, 1);
+  else if (k === 'ArrowDown')  nudge(0, -1);
+  else if (k === 'f' || k === 'F') startFlip();
+  else if (k === 'c' || k === 'C') { if (mode === 'squares') toggleCount(); }
+  else if (k === 'r' || k === 'R') toggleReveal();
+  else if (k === 'n' || k === 'N' || k === 'Enter' || k === ' ') { if (mode === 'chips') nextStep(); }
+  else if (k === 'm' || k === 'M') setMode(mode === 'chips' ? 'squares' : 'chips');
+  else return;
+  e.preventDefault();
+});
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+window.addEventListener('resize', fitCanvas);
+makeSteps();
+renderUI();
+fitCanvas();
+</script>
+</body>
+</html>
