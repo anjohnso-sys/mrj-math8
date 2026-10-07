@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fraction Strip Tower — Mr. J's Math 8</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: #1F3864;
+    color: #f1f5f9;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 16px 40px;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  h1 { font-size: 1.6rem; font-weight: 700; color: #F5A623; text-align: center; }
+  .subtitle { font-size: 0.95rem; color: #94a3b8; margin: 4px 0 16px; text-align: center; }
+
+  /* ── CARD ── */
+  .card {
+    background: #142850; border-radius: 14px; padding: 16px 18px;
+    width: 100%; max-width: 1100px;
+    border: 1px solid #2d4f8e;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  }
+
+  /* ── TOOLBAR ── */
+  .toolbar {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    align-items: center; justify-content: center; margin-bottom: 10px;
+  }
+  .toolbar .lbl {
+    font-size: 0.72rem; font-weight: 700; color: #94a3b8;
+    text-transform: uppercase; letter-spacing: 0.06em; margin-right: 4px;
+  }
+  .strip-btn {
+    min-width: 54px; padding: 8px 10px; border-radius: 8px;
+    font-family: inherit; font-size: 1.05rem; font-weight: 700;
+    background: transparent; color: #f1f5f9;
+    border: 2px solid var(--c); cursor: pointer;
+    transition: background 0.15s, color 0.15s, transform 0.1s;
+  }
+  .strip-btn:hover { transform: translateY(-1px); }
+  .strip-btn.on { background: var(--c); color: var(--t); }
+
+  .btn {
+    padding: 9px 18px; border-radius: 8px; border: none; cursor: pointer;
+    font-family: inherit; font-size: 0.95rem; font-weight: 700;
+    transition: background 0.15s, transform 0.1s;
+  }
+  .btn:hover { transform: translateY(-1px); }
+  .btn-primary { background: #F5A623; color: #1F3864; box-shadow: 0 4px 14px rgba(245,166,35,0.3); }
+  .btn-secondary { background: #2d4f8e; color: #f1f5f9; }
+  .btn-secondary:hover { background: #3a63b0; }
+
+  /* ── CANVAS ── */
+  #wrap { width: 100%; }
+  canvas {
+    display: block; width: 100%;
+    background: #0f1a2e; border: 1px solid #2d4f8e; border-radius: 10px;
+    touch-action: none;
+  }
+
+  /* ── LEGEND ── */
+  .legend {
+    display: flex; flex-wrap: wrap; gap: 22px; justify-content: center;
+    margin-top: 12px; font-size: 0.9rem; color: #94a3b8;
+  }
+  .legend span { display: inline-flex; align-items: center; gap: 8px; }
+  .sw { width: 34px; height: 18px; border-radius: 4px; background: #3b82f6; }
+  .sw.fit { background: #76a8f8; box-shadow: 0 0 0 2px #fff, 0 0 10px rgba(255,255,255,0.8); }
+  .sw.miss { opacity: 0.5; }
+  .foot { margin-top: 18px; font-size: 0.82rem; color: #94a3b8; text-align: center; }
+  .foot a { color: #F5A623; text-decoration: none; }
+  .foot a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+
+<h1>Fraction Strip Tower</h1>
+<p class="subtitle">Lay pieces on top of another strip. Do they fit exactly?</p>
+
+<div class="card">
+  <div class="toolbar" id="stripBar"><span class="lbl">Strips</span></div>
+  <div class="toolbar">
+    <button class="btn btn-secondary" id="allBtn">Show all</button>
+    <button class="btn btn-secondary" id="noneBtn">Clear tower</button>
+    <button class="btn btn-primary" id="resetBtn">Put pieces back</button>
+    <button class="btn btn-secondary" id="labelBtn">Labels: On</button>
+  </div>
+  <div id="wrap"><canvas id="cv"></canvas></div>
+  <div class="legend">
+    <span><i class="sw fit"></i> Exact fit</span>
+    <span><i class="sw miss"></i> Not exact</span>
+    <span>Double-tap a piece to send it home</span>
+  </div>
+</div>
+
+<p class="foot"><a href="../index.html">&larr; Back to Mr. J's Math 8</a></p>
+
+<script>
+// Positions along a strip are stored in "ticks": 27720 = LCM(1..12), so every
+// piece edge lands on a whole number and exact fits can be checked without rounding.
+const T = 27720;
+const LW = 1000, X0 = 150, W = 820;               // logical canvas width, strip left edge, strip width
+const RH = 52, GAP = 28, TOP = 24, LIFT = 16;     // row height, gap, top pad, overlay lift
+const SNAP_PX = 40;
+const PITCH = RH + GAP;                           // vertical spacing of tower rows and workspace lanes
+const LANES = 4, WX0 = 30;                        // workspace lanes, workspace left edge
+const WS_T = Math.floor((LW - 2 * WX0) / W * T);  // workspace width in ticks
+const SCRATCH = 40 + LIFT + LANES * PITCH - GAP + 16;
+
+const COLORS = [null, '#dc2626', '#f97316', '#eab308', '#84cc16', '#22c55e', '#14b8a6',
+                '#0ea5e9', '#3b82f6', '#6366f1', '#a855f7', '#d946ef', '#ec4899'];
+const NAMES  = [null, '1 whole', 'halves', 'thirds', 'fourths', 'fifths', 'sixths',
+                'sevenths', 'eighths', 'ninths', 'tenths', 'elevenths', 'twelfths'];
+
+const canvas = document.getElementById('cv');
+const ctx = canvas.getContext('2d');
+const wrap = document.getElementById('wrap');
+
+let rows = [];          // denominators in the tower, top to bottom
+// Tower piece: {place:'row', row, x, home}. Workspace piece: {place:'ws', lane, x, over}.
+// x is in ticks either way; dx/dy are animated display pixels.
+let pieces = [];
+let nextId = 1;
+let showLabels = true;
+let drag = null;
+let lastTap = { id: null, t: 0 };
+let fitChains = [];
+let fitBorn = new Map();
+
+// ── geometry ──
+const ticks  = d => T / d;
+const pieceW = d => W / d;
+const tx = t => X0 + t / T * W;
+const rowTop = d => TOP + LIFT + rows.indexOf(d) * (RH + GAP);
+const scratchTop = () => TOP + rows.length * (RH + GAP) + 16;
+const LH = () => scratchTop() + SCRATCH;
+const laneTop = i => scratchTop() + 40 + LIFT + i * PITCH;
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const end = q => q.x + ticks(q.d);
+const overlap = (x, w, list) => list.reduce((s, q) => s + Math.max(0, Math.min(x + w, end(q)) - Math.max(x, q.x)), 0);
+
+function target(p) {
+  if (p.place === 'row') return { x: tx(p.x), y: rowTop(p.row) - (p.home ? 0 : LIFT) };
+  return { x: WX0 + p.x / T * W, y: laneTop(p.lane) - (p.over ? LIFT : 0) };
+}
+
+// ── colours ──
+function rgb(hex) { const n = parseInt(hex.slice(1), 16); return [n >> 16, (n >> 8) & 255, n & 255]; }
+function textColor(hex) { const [r, g, b] = rgb(hex); return 0.299*r + 0.587*g + 0.114*b > 130 ? '#0f1a2e' : '#ffffff'; }
+function lighten(hex, a) {
+  const [r, g, b] = rgb(hex).map(c => Math.round(c + (255 - c) * a));
+  return `rgb(${r},${g},${b})`;
+}
+
+// ── tower rows ──
+function addRow(d, animate = true) {
+  if (rows.includes(d)) return;
+  rows.push(d);
+  rows.sort((a, b) => a - b);
+  for (let k = 0; k < d; k++) {
+    const p = { id: nextId++, d, place: 'row', row: d, x: k * ticks(d), home: true, fit: false };
+    const t = target(p);
+    p.dx = animate ? X0 : t.x;
+    p.dy = t.y;
+    pieces.push(p);
+  }
+}
+
+function removeRow(d) {
+  rows = rows.filter(r => r !== d);
+  pieces = pieces.filter(p => p.d !== d);
+  pieces.filter(p => p.place === 'row' && p.row === d).forEach(sendHome);
+  settleWorkspace();
+}
+
+function sendHome(p) {
+  if (p.place === 'row' && p.home) return;
+  const used = new Set(pieces.filter(q => q !== p && q.d === p.d && q.place === 'row' && q.row === p.d && q.home).map(q => q.x));
+  for (let k = 0; k < p.d; k++) {
+    const x = k * ticks(p.d);
+    if (!used.has(x)) { Object.assign(p, { place: 'row', row: p.d, x, home: true }); return; }
+  }
+}
+
+// ── placement & snapping ──
+function placementFor(p, cx, cy) {
+  const w = pieceW(p.d), mx = cx + w / 2, my = cy + RH / 2;
+  if (mx > X0 - 50 && mx < X0 + W + 50) {
+    for (const r of rows) {
+      const top = rowTop(r);
+      if (my >= top - LIFT - GAP / 2 && my < top + RH + GAP / 2) {
+        const res = snapOnRow(p, r, (cx - X0) / W * T);
+        if (res) return res;
+        break;
+      }
+    }
+  }
+  if (my >= scratchTop()) return snapInWorkspace(p, cx, cy);
+  return null;   // dropped in the tower but not on a strip: goes back where it came from
+}
+
+// Nearest candidate position {c, dist} where either edge of a piece of width w meets one of `edges`
+function nearest(edges, w, raw, maxX, ok) {
+  let best = null;
+  for (const e of edges) for (const c of [e, e - w]) {
+    if (c < 0 || c > maxX || !ok(c)) continue;
+    const dist = Math.abs(c - raw);
+    if (!best || dist < best.dist) best = { c, dist };
+  }
+  return best;
+}
+
+// Workspace: pieces sit in lanes. Dropped beside others they line up end to end
+// (and with pieces in the lanes above/below); dropped across a piece they are laid on top.
+function snapInWorkspace(p, cx, cy) {
+  const lane = clamp(Math.round((cy - laneTop(0)) / PITCH), 0, LANES - 1);
+  const w = ticks(p.d), maxX = WS_T - w, snapT = SNAP_PX / W * T;
+  const raw = clamp(Math.round((cx - WX0) / W * T), 0, maxX);
+  const ws = pieces.filter(q => q !== p && q.place === 'ws');
+  const inLane = ws.filter(q => q.lane === lane);
+  const base = inLane.filter(q => !q.over), over = inLane.filter(q => q.over);
+  const baseFree = x => overlap(x, w, base) < 1e-6;
+  const edgesNear = ws.filter(q => Math.abs(q.lane - lane) <= 1).flatMap(q => [q.x, end(q)]);
+
+  if (overlap(raw, w, base) < 0.3 * w) {
+    const b = nearest(edgesNear, w, raw, maxX, baseFree);
+    if (b && b.dist <= snapT) return { place: 'ws', lane, x: b.c, over: false };
+    if (baseFree(raw)) return { place: 'ws', lane, x: raw, over: false };
+  }
+  if (base.length) {
+    const ok = x => overlap(x, w, over) < 1e-6 && overlap(x, w, base) > 0;
+    const b = nearest(inLane.flatMap(q => [q.x, end(q)]), w, raw, maxX, ok);
+    if (b && b.dist <= snapT) return { place: 'ws', lane, x: b.c, over: true };
+    if (ok(raw)) return { place: 'ws', lane, x: raw, over: true };
+  }
+  const b = nearest([0, WS_T, ...base.flatMap(q => [q.x, end(q)])], w, raw, maxX, baseFree);
+  return b ? { place: 'ws', lane, x: b.c, over: false } : null;
+}
+
+// A piece laid on top settles back down if nothing is left underneath it
+function settleWorkspace() {
+  for (const p of pieces) {
+    if (p.place !== 'ws' || !p.over) continue;
+    const base = pieces.filter(q => q.place === 'ws' && q.lane === p.lane && !q.over);
+    if (overlap(p.x, ticks(p.d), base) < 1e-6) p.over = false;
+  }
+}
+
+function snapOnRow(p, r, raw) {
+  const w = ticks(p.d), unit = ticks(r), snapT = SNAP_PX / W * T;
+  const onRow = pieces.filter(q => q !== p && q.place === 'row' && q.row === r);
+
+  // Back into an empty slot of its own strip
+  if (p.d === r) {
+    const used = new Set(onRow.filter(q => q.home).map(q => q.x));
+    let best = null, bd = Infinity;
+    for (let k = 0; k < r; k++) {
+      const x = k * w;
+      if (!used.has(x) && Math.abs(x - raw) < bd) { bd = Math.abs(x - raw); best = x; }
+    }
+    if (best !== null && bd <= snapT) return { place: 'row', row: r, x: best, home: true };
+  }
+
+  // Laid on top: snap either edge to a strip division or a neighbouring piece's edge
+  const over = onRow.filter(q => !q.home);
+  const edges = [];
+  for (let k = 0; k <= r; k++) edges.push(k * unit);
+  for (const q of over) edges.push(q.x, q.x + ticks(q.d));
+  const free = x => over.every(q => x + w <= q.x + 1e-6 || x >= q.x + ticks(q.d) - 1e-6);
+
+  let best = null, bd = Infinity;
+  for (const e of edges) for (const c of [e, e - w]) {
+    const dd = Math.abs(c - raw);
+    if (dd < bd && free(c)) { bd = dd; best = c; }
+  }
+  if (best !== null && bd <= snapT) return { place: 'row', row: r, x: best, home: false };
+  if (free(raw)) return { place: 'row', row: r, x: raw, home: false };
+  if (best !== null && bd <= T / 3) return { place: 'row', row: r, x: best, home: false };
+  return null;
+}
+
+// ── exact-fit detection ──
+// Touching pieces laid on a strip form a chain; it fits when both ends land on that strip's divisions.
+function chainsOf(list) {
+  const sorted = [...list].sort((a, b) => a.x - b.x), out = [];
+  for (const q of sorted) {
+    const last = out[out.length - 1];
+    if (last && Math.abs(q.x - last.e) < 1e-6) { last.pieces.push(q); last.e = end(q); }
+    else out.push({ pieces: [q], s: q.x, e: end(q) });
+  }
+  return out;
+}
+
+function computeFit() {
+  const now = performance.now(), born = new Map();
+  fitChains = [];
+  pieces.forEach(p => p.fit = false);
+  const mark = (key, chain) => {
+    born.set(key, fitBorn.get(key) ?? now);
+    chain.forEach(q => q.fit = true);
+    fitChains.push({ chain, born: born.get(key) });
+  };
+
+  // Tower: ends must land on the strip's own divisions
+  for (const r of rows) {
+    const unit = ticks(r);
+    for (const c of chainsOf(pieces.filter(q => q.place === 'row' && q.row === r && !q.home))) {
+      if (c.s >= 0 && c.e <= T && c.s % unit === 0 && c.e % unit === 0) {
+        mark('r' + r + ':' + c.pieces.map(q => q.id).join(','), c.pieces);
+      }
+    }
+  }
+
+  // Workspace: ends must land on edges within one run of pieces underneath
+  for (let lane = 0; lane < LANES; lane++) {
+    const inLane = pieces.filter(q => q.place === 'ws' && q.lane === lane);
+    const under = chainsOf(inLane.filter(q => !q.over)).map(c => new Set([c.s, ...c.pieces.map(end)]));
+    for (const c of chainsOf(inLane.filter(q => q.over))) {
+      if (under.some(edges => edges.has(c.s) && edges.has(c.e))) {
+        mark('w' + lane + ':' + c.pieces.map(q => q.id).join(','), c.pieces);
+      }
+    }
+  }
+  fitBorn = born;
+}
+
+// Pieces lying flat (in their strip, or on the workspace table) vs. laid on top of others
+const isUnder = p => (p.place === 'row' && p.home) || (p.place === 'ws' && !p.over);
+const isOver  = p => (p.place === 'row' && !p.home) || (p.place === 'ws' && p.over);
+
+// ── drawing ──
+function rr(x, y, w, h, r) {
+  r = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+function drawFrac(d, cx, cy, color) {
+  ctx.fillStyle = color;
+  ctx.strokeStyle = color;
+  ctx.font = 'bold 17px "Segoe UI", system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  if (d === 1) { ctx.font = 'bold 20px "Segoe UI", system-ui, sans-serif'; ctx.fillText('1', cx, cy + 1); return; }
+  ctx.fillText('1', cx, cy - 11);
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(cx - 11, cy); ctx.lineTo(cx + 11, cy); ctx.stroke();
+  ctx.fillText(String(d), cx, cy + 12);
+}
+
+function drawPiece(p, alpha, shadow) {
+  const w = pieceW(p.d), x = p.dx, y = p.dy;
+  const base = COLORS[p.d];
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  if (shadow) {
+    ctx.shadowColor = 'rgba(0,0,0,0.55)';
+    ctx.shadowBlur = shadow;
+    ctx.shadowOffsetY = shadow / 3;
+  }
+  ctx.fillStyle = p.fit ? lighten(base, 0.28) : base;
+  rr(x + 1, y, w - 2, RH, 6);
+  ctx.fill();
+  ctx.shadowColor = 'transparent';
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = 'rgba(15,26,46,0.85)';
+  ctx.stroke();
+  if (showLabels) drawFrac(p.d, x + w / 2, y + RH / 2, textColor(base));
+  ctx.restore();
+}
+
+function draw(now) {
+  const lh = LH();
+  ctx.clearRect(0, 0, LW, lh);
+  ctx.fillStyle = '#0f1a2e';
+  ctx.fillRect(0, 0, LW, lh);
+
+  // Workspace area
+  const st = scratchTop();
+  ctx.save();
+  ctx.setLineDash([8, 8]);
+  ctx.strokeStyle = '#2d4f8e';
+  ctx.lineWidth = 2;
+  rr(14, st, LW - 28, SCRATCH - 14, 10);
+  ctx.stroke();
+  ctx.restore();
+  ctx.fillStyle = '#94a3b8';
+  ctx.font = '600 16px "Segoe UI", system-ui, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+  ctx.fillText('Workspace', 28, st + 10);
+  ctx.fillStyle = 'rgba(45,79,142,0.16)';
+  for (let i = 0; i < LANES; i++) { rr(WX0, laneTop(i), LW - 2 * WX0, RH, 6); ctx.fill(); }
+
+  if (!rows.length) {
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = '600 18px "Segoe UI", system-ui, sans-serif';
+    ctx.fillText('Choose strips above to build your tower', LW / 2, st / 2 + 8);
+  }
+
+  // Row tracks: empty slots stay outlined so the strip's divisions are always visible
+  for (const r of rows) {
+    const y = rowTop(r);
+    ctx.fillStyle = '#142850';
+    rr(X0, y, W, RH, 6);
+    ctx.fill();
+    ctx.save();
+    ctx.setLineDash([6, 6]);
+    ctx.strokeStyle = 'rgba(148,163,184,0.45)';
+    ctx.lineWidth = 2;
+    for (let k = 0; k < r; k++) { rr(X0 + k * W / r + 1, y, W / r - 2, RH, 6); ctx.stroke(); }
+    ctx.restore();
+    if (showLabels) {
+      ctx.fillStyle = COLORS[r];
+      ctx.font = 'bold 17px "Segoe UI", system-ui, sans-serif';
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(NAMES[r], X0 - 16, y + RH / 2);
+    }
+  }
+
+  const dragging = drag && drag.moved ? drag.p : null;
+  for (const p of pieces) if (p !== dragging && isUnder(p)) drawPiece(p, 1, p.place === 'ws' ? 4 : 0);
+  for (const p of pieces) if (p !== dragging && isOver(p)) drawPiece(p, p.fit ? 1 : 0.5, 8);
+
+  // Exact-fit glow, with a short pulse when the fit first happens
+  for (const c of fitChains) {
+    const first = c.chain[0];
+    const w = c.chain.reduce((s, q) => s + pieceW(q.d), 0);
+    const pulse = Math.max(0, 1 - (now - c.born) / 700);
+    ctx.save();
+    ctx.shadowColor = 'rgba(255,255,255,0.85)';
+    ctx.shadowBlur = 8 + pulse * 22;
+    ctx.strokeStyle = `rgba(255,255,255,${0.85 + 0.15 * pulse})`;
+    ctx.lineWidth = 3 + pulse * 2;
+    rr(first.dx - 1, first.dy - 2, w + 2, RH + 4, 8);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  if (dragging) {
+    const pv = drag.preview;
+    if (pv) {
+      const t = target(pv);
+      ctx.save();
+      ctx.setLineDash([6, 5]);
+      ctx.strokeStyle = 'rgba(255,255,255,0.75)';
+      ctx.lineWidth = 2.5;
+      rr(t.x + 1, t.y, pieceW(dragging.d) - 2, RH, 6);
+      ctx.stroke();
+      ctx.restore();
+    }
+    drawPiece(dragging, 0.92, 16);
+  }
+}
+
+// ── loop ──
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now;
+  const k = 1 - Math.exp(-dt * 16);
+  for (const p of pieces) {
+    if (drag && drag.moved && drag.p === p) continue;
+    const t = target(p);
+    p.dx += (t.x - p.dx) * k;
+    p.dy += (t.y - p.dy) * k;
+  }
+  draw(now);
+  requestAnimationFrame(frame);
+}
+
+// ── input ──
+function pos(e) {
+  const b = canvas.getBoundingClientRect();
+  return { x: (e.clientX - b.left) / b.width * LW, y: (e.clientY - b.top) / b.height * LH() };
+}
+
+function hit(x, y) {
+  const order = [...pieces.filter(isUnder), ...pieces.filter(isOver)];
+  for (let i = order.length - 1; i >= 0; i--) {
+    const p = order[i];
+    if (x >= p.dx && x <= p.dx + pieceW(p.d) && y >= p.dy && y <= p.dy + RH) return p;
+  }
+  return null;
+}
+
+canvas.addEventListener('pointerdown', e => {
+  const { x, y } = pos(e);
+  const p = hit(x, y);
+  if (!p) return;
+  e.preventDefault();
+  canvas.setPointerCapture(e.pointerId);
+  drag = {
+    p, id: e.pointerId, ox: x - p.dx, oy: y - p.dy, sx: x, sy: y, moved: false, preview: null,
+    saved: { place: p.place, row: p.row, x: p.x, home: p.home, lane: p.lane, over: p.over },
+  };
+  pieces.splice(pieces.indexOf(p), 1);
+  pieces.push(p);
+  canvas.style.cursor = 'grabbing';
+});
+
+canvas.addEventListener('pointermove', e => {
+  const { x, y } = pos(e);
+  if (!drag || e.pointerId !== drag.id) {
+    canvas.style.cursor = hit(x, y) ? 'grab' : 'default';
+    return;
+  }
+  if (!drag.moved) {
+    if (Math.hypot(x - drag.sx, y - drag.sy) < 5) return;
+    drag.moved = true;
+    drag.p.place = 'drag';
+    computeFit();
+  }
+  drag.p.dx = x - drag.ox;
+  drag.p.dy = y - drag.oy;
+  drag.preview = placementFor(drag.p, drag.p.dx, drag.p.dy);
+});
+
+canvas.addEventListener('pointerup', e => {
+  if (!drag || e.pointerId !== drag.id) return;
+  const p = drag.p;
+  if (drag.moved) {
+    Object.assign(p, placementFor(p, p.dx, p.dy) || drag.saved);
+  } else {
+    const now = performance.now();
+    if (lastTap.id === p.id && now - lastTap.t < 350) { sendHome(p); lastTap = { id: null, t: 0 }; }
+    else lastTap = { id: p.id, t: now };
+  }
+  drag = null;
+  canvas.style.cursor = 'grab';
+  settleWorkspace();
+  computeFit();
+});
+
+canvas.addEventListener('pointercancel', () => {
+  if (!drag) return;
+  Object.assign(drag.p, drag.saved);
+  drag = null;
+  settleWorkspace();
+  computeFit();
+});
+
+// ── toolbar ──
+const stripBar = document.getElementById('stripBar');
+const stripBtns = [];
+for (let d = 1; d <= 12; d++) {
+  const b = document.createElement('button');
+  b.className = 'strip-btn';
+  b.textContent = d === 1 ? '1' : '1/' + d;
+  b.title = NAMES[d];
+  b.style.setProperty('--c', COLORS[d]);
+  b.style.setProperty('--t', textColor(COLORS[d]));
+  b.addEventListener('click', () => {
+    if (drag) return;
+    rows.includes(d) ? removeRow(d) : addRow(d);
+    refresh();
+  });
+  stripBar.appendChild(b);
+  stripBtns[d] = b;
+}
+
+document.getElementById('allBtn').addEventListener('click', () => {
+  if (drag) return;
+  for (let d = 1; d <= 12; d++) addRow(d);
+  refresh();
+});
+
+document.getElementById('noneBtn').addEventListener('click', () => {
+  if (drag) return;
+  rows = []; pieces = [];
+  refresh();
+});
+
+document.getElementById('resetBtn').addEventListener('click', () => {
+  if (drag) return;
+  for (const d of rows) {
+    pieces.filter(p => p.d === d).forEach((p, k) => Object.assign(p, { place: 'row', row: d, x: k * ticks(d), home: true }));
+  }
+  refresh();
+});
+
+const labelBtn = document.getElementById('labelBtn');
+labelBtn.addEventListener('click', () => {
+  showLabels = !showLabels;
+  labelBtn.textContent = 'Labels: ' + (showLabels ? 'On' : 'Off');
+});
+
+function refresh() {
+  for (let d = 1; d <= 12; d++) stripBtns[d].classList.toggle('on', rows.includes(d));
+  resize();
+  computeFit();
+}
+
+function resize() {
+  const dpr = window.devicePixelRatio || 1;
+  const cssW = wrap.clientWidth;
+  const scale = cssW / LW;
+  const h = LH();
+  canvas.style.height = h * scale + 'px';
+  canvas.width = Math.round(cssW * dpr);
+  canvas.height = Math.round(h * scale * dpr);
+  ctx.setTransform(scale * dpr, 0, 0, scale * dpr, 0, 0);
+}
+window.addEventListener('resize', resize);
+
+[1, 2, 3, 4, 6, 8, 12].forEach(d => addRow(d, false));
+refresh();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
